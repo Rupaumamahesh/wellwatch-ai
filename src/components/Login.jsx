@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Activity, Mail, Lock, ChevronDown } from "lucide-react";
 import { api } from "../api";
 
@@ -8,7 +8,9 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [forgot, setForgot] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -44,13 +46,14 @@ export default function Login() {
         </div>
 
         <h1 className="text-xl font-semibold text-slate-800 text-center mb-1">
-          Welcome back
+          {forgot ? "Reset your password" : "Welcome back"}
         </h1>
         <p className="text-sm text-slate-500 text-center mb-6">
-          Log in to continue to your dashboard
+          {forgot ? "Password reset by email is a future feature. Contact your manager for help." : "Log in to continue to your dashboard"}
         </p>
+        {location.state?.notice && <p role="status" className="mb-4 text-center text-sm text-emerald-700">{location.state.notice}</p>}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {forgot ? <div className="space-y-4"><p className="text-center text-sm text-slate-500">Please contact your manager to reset your password.</p><button type="button" onClick={() => { setForgot(false); setError(""); }} className="w-full text-sm text-violet-600">Back to login</button></div> : <form onSubmit={handleSubmit} className="space-y-4">
           {/* Role selector */}
           <div>
             <label className="block text-sm text-slate-600 mb-1">
@@ -122,13 +125,13 @@ export default function Login() {
           >
             Log in
           </button>
-        </form>
+        </form>}
 
-        <p className="text-center text-sm text-slate-400 mt-5">
-          <button className="hover:text-violet-600" type="button">
+        {!forgot && <p className="text-center text-sm text-slate-400 mt-5">
+          <button onClick={() => { setForgot(true); setError(""); }} className="hover:text-violet-600" type="button">
             Forgot password?
           </button>
-        </p>
+        </p>}
       </div>
     </div>
   );

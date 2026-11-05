@@ -1,0 +1,17 @@
+.git
+.github
+.venv
+.local
+.playwright-mcp
+node_modules
+dist
+.env
+.env.*
+!.env.example
+*.sqlite3
+backend/local-emails
+backend/wellness/risk_model.pkl
+dashboard-*.png
+*.pdf
+__pycache__
+*.py[cod]

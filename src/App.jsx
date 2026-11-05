@@ -4,24 +4,33 @@ import Dashboard from "./components/Dashboard";
 import CheckIn from "./components/CheckIn";
 import ManagerDashboard from "./components/ManagerDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
-
-function Placeholder({ title }) {
-  return <div className="min-h-screen bg-slate-50 p-8"><h1 className="text-2xl font-semibold text-slate-800">{title}</h1><p className="mt-2 text-slate-500">This view is available from the dashboard once your check-in history grows.</p></div>;
-}
+import WellnessPage from "./components/WellnessPage";
+import SettingsPage from "./components/SettingsPage";
+import ReportsPage from "./components/ReportsPage";
+import ManagerInsights from "./components/ManagerInsights";
+import PasswordReset from "./components/PasswordReset";
+import EmployeeInsights from "./components/EmployeeInsights";
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Login />} />
+      <Route path="/password-reset" element={<PasswordReset />} />
       <Route element={<ProtectedRoute role="employee" />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/checkin" element={<CheckIn />} />
-        <Route path="/trends" element={<Placeholder title="Wellness trends" />} />
-        <Route path="/recommendations" element={<Placeholder title="AI recommendations" />} />
-        <Route path="/resources" element={<Placeholder title="Wellness resources" />} />
+        <Route path="/trends" element={<WellnessPage page="trends" />} />
+        <Route path="/recommendations" element={<WellnessPage page="recommendations" />} />
+        <Route path="/resources" element={<WellnessPage page="resources" />} />
+        <Route path="/settings" element={<SettingsPage role="employee" />} />
+        <Route path="/reports" element={<ReportsPage role="employee" />} />
+        <Route path="/team-insights" element={<EmployeeInsights />} />
       </Route>
       <Route element={<ProtectedRoute role="manager" />}>
         <Route path="/manager-dashboard" element={<ManagerDashboard />} />
+        <Route path="/manager-insights" element={<ManagerInsights />} />
+        <Route path="/manager-reports" element={<ReportsPage role="manager" />} />
+        <Route path="/manager-settings" element={<SettingsPage role="manager" />} />
       </Route>
     </Routes>
   );

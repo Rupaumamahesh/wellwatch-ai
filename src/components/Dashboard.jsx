@@ -25,31 +25,14 @@ import {
 } from "recharts";
 import { api, clearSession } from "../api";
 
-// ---- Sample data (swap for real API data later) ----
-const burnoutTrend = [
-  { week: "Week 1", risk: 78 },
-  { week: "Week 2", risk: 45 },
-  { week: "Week 3", risk: 52 },
-  { week: "Week 4", risk: 62 },
-];
-
-const wellnessFactors = [
-  { label: "Workload", value: 60, tone: "amber" },
-  { label: "Sleep Quality", value: 75, tone: "green" },
-  { label: "Stress Level", value: 80, tone: "red" },
-  { label: "Mood", value: 70, tone: "green" },
-  { label: "Focus", value: 55, tone: "amber" },
-];
-
 const navItems = [
   { label: "Dashboard", icon: LayoutGrid, active: true, path: "/dashboard" },
   { label: "Daily Check-in", icon: CheckSquare, path: "/checkin" },
-  { label: "Wellness Trends", icon: TrendingUp },
-  { label: "AI Recommendations", icon: Sparkles },
-  { label: "Reports", icon: BarChart2 },
-  { label: "Team Insights", icon: Users },
-  { label: "Resources", icon: BookOpen },
-  { label: "Settings", icon: Settings },
+  { label: "Wellness Trends", icon: TrendingUp, path: "/trends" },
+  { label: "AI Recommendations", icon: Sparkles, path: "/recommendations" },
+  { label: "Team Insights", icon: Users, path: "/team-insights" },
+  { label: "Resources", icon: BookOpen, path: "/resources" },
+  { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
 const toneClasses = {
@@ -133,7 +116,7 @@ export default function Dashboard() {
   }
 
   const risk = data?.risk_probability != null ? Math.round(data.risk_probability * 100) : 0;
-  const factors = data?.factors || wellnessFactors.map((factor) => ({ ...factor }));
+  const factors = data?.factors || [];
 
   async function toggleSharing() {
     try {
@@ -148,7 +131,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">
       {/* Sidebar */}
-      <aside className="w-64 bg-[#1B1533] text-slate-300 flex flex-col shrink-0">
+      <aside className="hidden md:flex w-64 bg-[#1B1533] text-slate-300 flex-col shrink-0">
         <div className="flex items-center gap-2 px-6 py-6">
           <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center">
             <Activity className="w-4 h-4 text-white" aria-hidden="true" />
@@ -160,11 +143,13 @@ export default function Dashboard() {
           {navItems.map(({ label, icon: Icon, active, path }) => (
             <button
               key={label}
+              disabled={!path}
+              title={!path ? `${label} is not available yet` : undefined}
               onClick={() => path && navigate(path)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                 active
                   ? "bg-violet-600 text-white font-medium"
-                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400"
               }`}
             >
               <Icon className="w-4 h-4" aria-hidden="true" />
@@ -185,7 +170,8 @@ export default function Dashboard() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="min-w-0 flex-1 p-4 sm:p-8 overflow-y-auto">
+        <nav className="md:hidden flex gap-2 overflow-x-auto mb-6 pb-1">{navItems.filter(({path}) => path).map(({label,path}) => <button key={path} onClick={() => navigate(path)} className="shrink-0 rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">{label}</button>)}<button onClick={handleLogout} className="shrink-0 rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">Logout</button></nav>
         <header className="mb-6">
           <h1 className="text-2xl font-semibold text-slate-800">Dashboard</h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -193,7 +179,8 @@ export default function Dashboard() {
             Here's your wellness overview for today.
           </p>
         </header>
-        {error && <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">{error} Start the Django API to load live data.</p>}
+        {error && <p role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error} <button onClick={() => { setError(""); api.dashboard().then(setData).catch((e) => setError(e.message)); }} className="underline">Try again</button></p>}
+        <p className="mb-4 text-xs text-slate-500">Wellness risk scores are experimental estimates from a model trained on synthetic data. They are not validated predictions or a diagnosis.</p>
 
         {/* Top metric cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -201,29 +188,27 @@ export default function Dashboard() {
             title="Burnout Risk"
             badge={data?.risk_level || "No data"}
             badgeTone={data?.risk_level === "high" ? "red" : "amber"}
-            value={risk}
+            value={data?.risk_probability != null ? risk : "—"}
             unit="/ 100"
-            subtext="Based on workload & stress factors"
+            subtext={data ? "Based on your check-in data" : "Complete a check-in to see your risk score"}
           />
           <MetricCard
             title="Check-in Streak"
-            value={data?.streak ?? 0}
+            value={data ? data.streak : "—"}
             unit="Days"
-            subtext="Great going! Keep it up"
+            subtext={data?.streak ? "Consecutive check-in days" : "Your check-ins will appear here"}
             icon={Sparkles}
           />
           <MetricCard
             title="Wellness Score"
-            badge="Good"
-            badgeTone="green"
             value={data?.wellness_score ?? "—"}
             unit="/ 100"
-            subtext="Increased by 4 points from last week"
+            subtext="Based on your latest check-in"
           />
           <MetricCard
             title="Weekly Summary"
-            value="Report Ready"
-            subtext=""
+            value={data?.latest_checkin ? "Available" : "—"}
+            subtext={data?.latest_checkin ? "Latest check-in received" : "Complete a check-in to start"}
             icon={FileText}
           />
         </div>
@@ -233,14 +218,14 @@ export default function Dashboard() {
           <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-medium text-slate-800">Burnout Risk Trend</h2>
-              <span className="text-xs text-slate-400">Last 4 Weeks</span>
+              <span className="text-xs text-slate-400">Recent check-ins</span>
             </div>
             <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data?.risk_trend || burnoutTrend}>
+              {data?.risk_trend?.length ? <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data.risk_trend}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef0f5" />
                   <XAxis
-                    dataKey="week"
+                    dataKey="day"
                     tick={{ fontSize: 12, fill: "#94a3b8" }}
                     axisLine={false}
                     tickLine={false}
@@ -255,13 +240,13 @@ export default function Dashboard() {
                     dot={{ r: 4, fill: "#7c3aed" }}
                   />
                 </LineChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer> : <div className="h-full grid place-items-center text-sm text-slate-500">{data ? "No trend data yet. Complete check-ins to build your trend." : "Loading your trend…"}</div>}
             </div>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <h2 className="font-medium text-slate-800 mb-4">Wellness Factors</h2>
-            {factors.map((f) => (
+            {!factors.length ? <p className="text-sm text-slate-500">{data ? "Complete a check-in to see your wellness factors." : "Loading your factors…"}</p> : factors.map((f) => (
               <WellnessBar key={f.label} {...f} />
             ))}
           </div>
@@ -287,11 +272,11 @@ export default function Dashboard() {
                 <CheckSquare className="w-4 h-4" aria-hidden="true" />
                 Daily Check-in
               </button>
-              <button className="flex flex-col items-center gap-2 rounded-xl bg-slate-50 text-slate-600 py-3 text-xs font-medium hover:bg-slate-100">
+              <button onClick={() => navigate("/reports")} className="flex flex-col items-center gap-2 rounded-xl bg-slate-50 text-slate-600 py-3 text-xs font-medium hover:bg-slate-100">
                 <BarChart2 className="w-4 h-4" aria-hidden="true" />
                 View Reports
               </button>
-              <button className="flex flex-col items-center gap-2 rounded-xl bg-slate-50 text-slate-600 py-3 text-xs font-medium hover:bg-slate-100">
+              <button onClick={() => navigate("/resources")} className="flex flex-col items-center gap-2 rounded-xl bg-slate-50 text-slate-600 py-3 text-xs font-medium hover:bg-slate-100">
                 <BookOpen className="w-4 h-4" aria-hidden="true" />
                 Resources
               </button>
@@ -300,8 +285,9 @@ export default function Dashboard() {
               onClick={toggleSharing}
               className="mt-4 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50"
             >
-              {data?.user?.share_with_manager ? "Shared with manager (turn off)" : "Keep my details private"}
+              {sharing ? "Remove my check-ins from anonymous team summaries" : "Include my check-ins in anonymous team summaries"}
             </button>
+            <p className="mt-2 text-xs text-slate-500">Only anonymous, aggregated summaries are shared with your manager; individual check-ins remain private.</p>
           </div>
         </div>
       </main>
