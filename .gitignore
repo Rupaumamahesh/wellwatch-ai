@@ -28,6 +28,7 @@ __pycache__/
 *.py[cod]
 *.sqlite3
 .venv/
+backend/wellness/risk_model.pkl
 
 .env
 .env.*
