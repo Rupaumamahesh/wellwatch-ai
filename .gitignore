@@ -28,3 +28,12 @@ __pycache__/
 *.py[cod]
 *.sqlite3
 .venv/
+
+.env
+.env.*
+!.env.example
+backend/local-emails/
+backend/wellness/risk_model.pkl
+.playwright-mcp/
+dashboard-*.png
+Things to do.pdf
