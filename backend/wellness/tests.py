@@ -80,10 +80,11 @@ class ApiTests(TestCase):
         self.assertEqual(known.status_code, 200)
         self.assertEqual(known.data, unknown.data)
         self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("/reset-password?uid=", mail.outbox[0].body)
+        self.assertIn("/password-reset?uid=", mail.outbox[0].body)
         uid = urlsafe_base64_encode(force_bytes(self.employee.pk))
         token = default_token_generator.make_token(self.employee)
         self.assertEqual(self.client.post("/api/password/reset", {"uid": uid, "token": "invalid", "new_password": "A-new-unique-passphrase-124!"}, format="json").status_code, 400)
+        self.assertEqual(self.client.post("/api/password/reset", ["malformed"], format="json").status_code, 400)
         response = self.client.post("/api/password/reset", {"uid": uid, "token": token, "new_password": "A-new-unique-passphrase-124!"}, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(User.objects.get(pk=self.employee.pk).check_password("A-new-unique-passphrase-124!"))
@@ -99,6 +100,21 @@ class ApiTests(TestCase):
         self.assertEqual(len(result.data), 1)
         self.assertEqual(result.data[0]["risk"]["score"], 20)
         self.assertNotIn("other", str(result.data))
+
+    def test_employee_team_stats_use_consented_aggregate_and_suppress_small_cohorts(self):
+        self.auth(self.employee)
+        suppressed = self.client.get("/api/me/team-stats").data
+        self.assertEqual(suppressed["count"], 0)
+        for index, score in enumerate((20, 50, 80)):
+            member = User.objects.create_user(username=f"consenting-{index}", share_with_manager=True)
+            self.team.members.add(member)
+            checkin = CheckIn.objects.create(user=member, date=timezone.localdate(), mood=3, stress=40, energy=50, sleep=50)
+            RiskScore.objects.create(user=member, checkin=checkin, score=score, level="medium")
+        result = self.client.get("/api/me/team-stats")
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.data["count"], 3)
+        self.assertEqual(result.data["median"], 50)
+        self.assertNotIn("consenting", str(result.data))
 
     def test_team_name_and_report_are_manager_scoped_and_aggregate_only(self):
         self.auth(self.manager)

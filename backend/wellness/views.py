@@ -31,7 +31,8 @@ def profile(request):
 
 @api_view(["PATCH"])
 def change_password(request):
-    current_password, new_password = request.data.get("current_password"), request.data.get("new_password")
+    data = request.data if hasattr(request.data, "get") else {}
+    current_password, new_password = data.get("current_password"), data.get("new_password")
     if not isinstance(current_password, str) or not isinstance(new_password, str) or not new_password:
         return Response({"detail": "current_password and new_password are required."}, status=400)
     if not request.user.check_password(current_password):
@@ -48,14 +49,14 @@ def change_password(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def forgot_password(request):
-    email = request.data.get("email")
+    email = request.data.get("email") if hasattr(request.data, "get") else None
     if isinstance(email, str):
         user = User.objects.filter(email__iexact=email, is_active=True).first()
         if user:
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
             frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173")
-            reset_url = f"{frontend_url.rstrip('/')}/reset-password?uid={uid}&token={token}"
+            reset_url = f"{frontend_url.rstrip('/')}/password-reset?uid={uid}&token={token}"
             sender = getattr(settings, "DEFAULT_FROM_EMAIL", "")
             if sender:
                 send_mail("Reset your Wellwatch password", f"Use this link to reset your password: {reset_url}",
@@ -65,7 +66,8 @@ def forgot_password(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def reset_password(request):
-    uid, token, password = request.data.get("uid"), request.data.get("token"), request.data.get("new_password")
+    data = request.data if hasattr(request.data, "get") else {}
+    uid, token, password = data.get("uid"), data.get("token"), data.get("new_password")
     if not all(isinstance(value, str) and value for value in (uid, token, password)):
         return Response({"detail": "uid, token, and new_password are required."}, status=400)
     try:
@@ -186,6 +188,15 @@ def share(request):
 def team_stats(request):
     teams = Team.objects.filter(manager=request.user)
     members = User.objects.filter(teams__in=teams, share_with_manager=True).distinct()
+    return Response(_aggregate_team_stats(members))
+
+@api_view(["GET"])
+def personal_team_stats(request):
+    teams = request.user.teams.all()
+    members = User.objects.filter(teams__in=teams, share_with_manager=True).distinct()
+    return Response(_aggregate_team_stats(members))
+
+def _aggregate_team_stats(members):
     latest_by_member = []
     for member in members:
         latest = _latest_risk(member)
@@ -200,15 +211,15 @@ def team_stats(request):
              for date, values in daily_stress.items() if len(values) >= 3]
     # Small cohorts can reveal one person's wellness values through aggregate changes.
     if len(scores) < 3:
-        return Response({"count": 0, "median": None, "std": 0, "at_risk": 0,
-                         "risk_counts": {"low": 0, "medium": 0, "high": 0}, "stress_trend": []})
-    return Response({
+        return {"count": 0, "median": None, "std": 0, "at_risk": 0,
+                "risk_counts": {"low": 0, "medium": 0, "high": 0}, "stress_trend": []}
+    return {
         "count": len(scores), "median": statistics.median(scores),
         "std": statistics.pstdev(scores) if len(scores) > 1 else 0,
         "at_risk": sum(s >= 65 for s in scores),
         "risk_counts": {"low": sum(s < 35 for s in scores), "medium": sum(35 <= s < 65 for s in scores), "high": sum(s >= 65 for s in scores)},
         "stress_trend": trend,
-    })
+    }
 
 @api_view(["GET", "PATCH"])
 @permission_classes([IsManager])
