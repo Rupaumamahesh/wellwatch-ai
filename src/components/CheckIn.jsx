@@ -103,16 +103,17 @@ export default function CheckIn() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Mood */}
             <div>
-              <label className="block text-sm text-slate-600 mb-2">
-                How are you feeling today?
+              <label id="mood-label" className="block text-sm text-slate-600 mb-2">
+                How are you feeling today? <span className="text-red-500">*</span>
               </label>
-              <div className="flex justify-between">
+              <div className="flex justify-between" role="group" aria-labelledby="mood-label" aria-required="true">
                 {MOODS.map((m) => (
                   <button
                     type="button"
                     key={m.value}
                     onClick={() => setMood(m.value)}
                     aria-label={m.label}
+                    aria-pressed={mood === m.value}
                     className={`w-11 h-11 rounded-full flex items-center justify-center text-xl transition-all ${
                       mood === m.value
                         ? "bg-violet-100 ring-2 ring-violet-500 scale-110"
@@ -189,6 +190,7 @@ function SliderField({ label, value, onChange, lowLabel, highLabel }) {
         <span className="text-slate-400">{value}%</span>
       </div>
       <input
+        aria-label={`${label}, ${lowLabel} to ${highLabel}`}
         type="range"
         min="0"
         max="100"

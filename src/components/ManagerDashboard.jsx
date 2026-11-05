@@ -22,19 +22,7 @@ import {
 } from "recharts";
 import { api, clearSession } from "../api";
 
-// ---- Sample data (swap for real API data later) ----
-const teamStressTrend = [
-  { week: "Week 1", stress: 40 },
-  { week: "Week 2", stress: 48 },
-  { week: "Week 3", stress: 55 },
-  { week: "Week 4", stress: 68 },
-];
-
-const riskCounts = [
-  { label: "Low risk", value: 15, tone: "green" },
-  { label: "Medium risk", value: 6, tone: "amber" },
-  { label: "High risk", value: 2, tone: "red" },
-];
+const riskCounts = [{ label: "Low risk", tone: "green" }, { label: "Medium risk", tone: "amber" }, { label: "High risk", tone: "red" }];
 
 const navItems = [
   { label: "Team Overview", icon: LayoutGrid, active: true, path: "/manager-dashboard" },
@@ -53,8 +41,13 @@ export default function ManagerDashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [message, setMessage] = useState("");
+  const [members, setMembers] = useState([]);
+  const [memberError, setMemberError] = useState("");
+  const [memberForm, setMemberForm] = useState({ username: "", email: "", password: "" });
+  const [savingMember, setSavingMember] = useState(false);
   useEffect(() => {
     api.teamStats().then(setData).catch((error) => setMessage(error.message));
+    api.teamMembers().then((result) => setMembers(result.members || result)).catch((error) => setMemberError(error.message));
   }, []);
 
   function handleLogout() {
@@ -72,12 +65,25 @@ export default function ManagerDashboard() {
     }
   }
 
+  async function addMember(e) {
+    e.preventDefault(); setMemberError(""); setSavingMember(true);
+    try { await api.addTeamMember(memberForm); setMemberForm({ username: "", email: "", password: "" }); setMembers(await api.teamMembers().then((result) => result.members || result)); }
+    catch (error) { setMemberError(error.message); }
+    finally { setSavingMember(false); }
+  }
+
+  async function removeMember(id) {
+    setMemberError("");
+    try { await api.removeTeamMember(id); setMembers((current) => current.filter((member) => member.id !== id)); }
+    catch (error) { setMemberError(error.message); }
+  }
+
   const counts = data?.risk_counts || {};
 
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">
       {/* Sidebar */}
-      <aside className="w-64 bg-[#1B1533] text-slate-300 flex flex-col shrink-0">
+      <aside className="hidden md:flex w-64 bg-[#1B1533] text-slate-300 flex-col shrink-0">
         <div className="flex items-center gap-2 px-6 py-6">
           <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center">
             <Activity className="w-4 h-4 text-white" aria-hidden="true" />
@@ -114,7 +120,8 @@ export default function ManagerDashboard() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="min-w-0 flex-1 p-4 sm:p-8 overflow-y-auto">
+        <nav className="md:hidden flex gap-2 overflow-x-auto mb-6 pb-1">{navItems.filter(({path}) => path).map(({label,path}) => <button key={path} onClick={() => navigate(path)} className="shrink-0 rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">{label}</button>)}<button onClick={handleLogout} className="shrink-0 rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">Logout</button></nav>
         <header className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-slate-800">
@@ -126,10 +133,10 @@ export default function ManagerDashboard() {
           </div>
           <div className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-3 py-1.5 text-xs text-slate-500">
             <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-            No individual data shown
+            Only shared data is included
           </div>
         </header>
-        {message && <p className="mb-4 rounded-lg bg-violet-50 px-4 py-3 text-sm text-violet-700">{message}</p>}
+        {message && <p role="status" className="mb-4 rounded-lg bg-violet-50 px-4 py-3 text-sm text-violet-700">{message}</p>}
 
         {/* Risk count cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -139,15 +146,13 @@ export default function ManagerDashboard() {
               className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5"
             >
               <p className="text-sm text-slate-500 mb-2">{r.label}</p>
-              <p className={`text-3xl font-semibold ${toneClasses[r.tone]}`}>
-                {counts[r.label.replace(" risk", "").toLowerCase()] ?? 0}
-              </p>
+              <p className={`text-3xl font-semibold ${toneClasses[r.tone]}`}>{data?.count ? counts[r.label.replace(" risk", "").toLowerCase()] ?? 0 : "—"}</p>
             </div>
           ))}
         </div>
 
         {/* Trend chart */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-6">
+        <div className="relative bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-medium text-slate-800">
               Median team stress trend
@@ -156,10 +161,10 @@ export default function ManagerDashboard() {
           </div>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data?.stress_trend || teamStressTrend}>
+              {data?.stress_trend?.length ? <LineChart data={data.stress_trend}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef0f5" />
                 <XAxis
-                  dataKey="week"
+                  dataKey="date"
                   tick={{ fontSize: 12, fill: "#94a3b8" }}
                   axisLine={false}
                   tickLine={false}
@@ -173,8 +178,9 @@ export default function ManagerDashboard() {
                   strokeWidth={2}
                   dot={{ r: 4, fill: "#378ADD" }}
                 />
-              </LineChart>
+              </LineChart> : null}
             </ResponsiveContainer>
+          {!data?.stress_trend?.length && <div className="absolute inset-0 grid place-items-center px-4 text-center text-sm text-slate-500">{data?.count === 0 ? "No shared check-ins available. Zero counts do not indicate zero risk." : data ? "No shared trend data available." : "Loading team trends…"}</div>}
           </div>
         </div>
 
@@ -187,15 +193,15 @@ export default function ManagerDashboard() {
                 Team-wide trend alert
               </h3>
               <p className="text-sm text-slate-600">
-                Team stress has trended upward over the past two weeks.
-                Consider reviewing current workload distribution.
+                Team level trends include only check-ins shared by employees.
+                Use the aggregate risk counts to guide a supportive workload review.
               </p>
             </div>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col justify-between">
             <p className="text-sm text-slate-500 mb-3">
-              {counts.high ?? 0} members at high risk this week
+              {data?.count ? `${counts.high ?? 0} members in the high risk group` : "No shared check-in data available"}
             </p>
             <button
               onClick={handleNotifyHR}
@@ -206,6 +212,17 @@ export default function ManagerDashboard() {
             </button>
           </div>
         </div>
+        <section className="mt-6 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <h2 className="font-medium mb-1">Team members</h2><p className="text-sm text-slate-500 mb-4">Manage team login accounts. Wellness data is shared only with each employee’s consent.</p>
+          {memberError && <p role="alert" className="mb-3 text-sm text-red-600">{memberError}</p>}
+          <form onSubmit={addMember} className="grid gap-3 sm:grid-cols-4 mb-5">
+            <input required value={memberForm.username} onChange={(e) => setMemberForm({...memberForm, username:e.target.value})} placeholder="Username" aria-label="Username" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <input required type="email" value={memberForm.email} onChange={(e) => setMemberForm({...memberForm, email:e.target.value})} placeholder="Email" aria-label="Email" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <input required type="password" minLength="8" value={memberForm.password} onChange={(e) => setMemberForm({...memberForm, password:e.target.value})} placeholder="Temporary password" aria-label="Temporary password" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            <button disabled={savingMember} className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60">{savingMember ? "Adding…" : "Add member"}</button>
+          </form>
+          {members.length ? <ul className="divide-y divide-slate-100">{members.map((member) => <li key={member.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"><span><strong className="font-medium">{member.username}</strong><span className="ml-2 text-slate-500">{member.email}</span><span className="ml-2 text-xs text-slate-500">{member.share_with_manager ? "Sharing enabled" : "Private"}</span></span><button onClick={() => removeMember(member.id)} className="text-red-600 hover:underline">Remove</button></li>)}</ul> : <p className="text-sm text-slate-500">No team members found.</p>}
+        </section>
       </main>
     </div>
   );

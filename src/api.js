@@ -12,6 +12,10 @@ async function request(path, options = {}) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status === 401 && token) {
+      clearSession();
+      window.location.assign("/");
+    }
     const error = new Error(data.detail || data.error || "Request failed.");
     error.status = response.status;
     throw error;
@@ -28,6 +32,9 @@ export const api = {
   recommendations: () => request("/me/recommendations"),
   share: (shared_with_manager) => request("/me/share", { method: "PATCH", body: JSON.stringify({ shared_with_manager }) }),
   teamStats: () => request("/team/stats"),
+  teamMembers: () => request("/team/members"),
+  addTeamMember: (member) => request("/team/members", { method: "POST", body: JSON.stringify(member) }),
+  removeTeamMember: (id) => request("/team/members", { method: "DELETE", body: JSON.stringify({ id }) }),
   notifyHr: () => request("/team/notify-hr", { method: "POST" }),
 };
 
