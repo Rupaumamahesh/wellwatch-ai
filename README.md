@@ -46,6 +46,7 @@ For production, set `DJANGO_DEBUG=0`, replace the Mailpit SMTP settings with a r
 ## Checks
 
 ```powershell
+node --test src/*.test.js
 npm run lint
 npm run build
 npm audit --audit-level=high
@@ -54,3 +55,9 @@ npm audit --audit-level=high
 ```
 
 GitHub Actions runs frontend checks and backend tests against PostgreSQL 17. Local commits are GPG-signed; nothing is pushed automatically.
+
+## Local database backups
+
+Run `./scripts/backup-postgres.ps1` to save a custom-format dump under ignored `.local/backups/`. Use `pg_restore` against a separate empty database to verify a backup before relying on it. `./scripts/stop-postgres.ps1` stops only this project database. The original SQLite review database is retained unchanged.
+
+For production HTTPS proxies set `TRUST_PROXY=1` only when the proxy overwrites forwarded headers, `FRONTEND_URL` to the public app origin, and `CSRF_TRUSTED_ORIGINS` to its HTTPS origin. No public hosting account or production SMTP credentials are included. Local notification files and Compose Mailpit provide real delivery to a review inbox without sending externally.
