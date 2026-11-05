@@ -5,6 +5,20 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.11
+        env:
+          POSTGRES_DB: wellwatch
+          POSTGRES_USER: wellwatch
+          POSTGRES_PASSWORD: wellwatch-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wellwatch -d wellwatch"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -12,6 +26,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - run: node --test src/reports.test.js
       - run: npm run lint
       - run: npm run build
       - run: npm audit --audit-level=high
@@ -21,4 +36,8 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: python backend/manage.py test wellness
         env:
-          DATABASE_URL: sqlite:///test.sqlite3
+          POSTGRES_DB: wellwatch
+          POSTGRES_USER: wellwatch
+          POSTGRES_PASSWORD: wellwatch-test-password
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
