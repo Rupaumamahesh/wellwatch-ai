@@ -143,11 +143,13 @@ export default function Dashboard() {
           {navItems.map(({ label, icon: Icon, active, path }) => (
             <button
               key={label}
+              disabled={!path}
+              title={!path ? `${label} is not available yet` : undefined}
               onClick={() => path && navigate(path)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                 active
                   ? "bg-violet-600 text-white font-medium"
-                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400"
               }`}
             >
               <Icon className="w-4 h-4" aria-hidden="true" />
@@ -283,9 +285,9 @@ export default function Dashboard() {
               onClick={toggleSharing}
               className="mt-4 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50"
             >
-                {sharing ? "Stop sharing check-in data with my manager" : "Allow my manager to see my check-in data"}
+              {sharing ? "Remove my check-ins from anonymous team summaries" : "Include my check-ins in anonymous team summaries"}
             </button>
-            <p className="mt-2 text-xs text-slate-500">Your manager sees your information only when you enable sharing. Team reports use shared check-in data.</p>
+            <p className="mt-2 text-xs text-slate-500">Only anonymous, aggregated summaries are shared with your manager; individual check-ins remain private.</p>
           </div>
         </div>
       </main>

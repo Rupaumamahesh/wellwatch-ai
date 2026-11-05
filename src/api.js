@@ -16,7 +16,11 @@ async function request(path, options = {}) {
       clearSession();
       window.location.assign("/");
     }
-    const error = new Error(data.detail || data.error || "Request failed.");
+    const detail = data.detail || data.error || data;
+    const message = typeof detail === "string" ? detail : Array.isArray(detail)
+      ? detail.join(" ")
+      : Object.entries(detail).map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(" ") : messages}`).join(" ") || "Request failed.";
+    const error = new Error(message);
     error.status = response.status;
     throw error;
   }

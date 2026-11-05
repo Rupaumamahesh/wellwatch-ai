@@ -95,11 +95,13 @@ export default function ManagerDashboard() {
           {navItems.map(({ label, icon: Icon, active, path }) => (
             <button
               key={label}
+              disabled={!path}
+              title={!path ? `${label} is not available yet` : undefined}
               onClick={() => path && navigate(path)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                 active
                   ? "bg-violet-600 text-white font-medium"
-                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400"
               }`}
             >
               <Icon className="w-4 h-4" aria-hidden="true" />
@@ -133,7 +135,7 @@ export default function ManagerDashboard() {
           </div>
           <div className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-3 py-1.5 text-xs text-slate-500">
             <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-            Only shared data is included
+            Anonymous summaries only
           </div>
         </header>
         {message && <p role="status" className="mb-4 rounded-lg bg-violet-50 px-4 py-3 text-sm text-violet-700">{message}</p>}
