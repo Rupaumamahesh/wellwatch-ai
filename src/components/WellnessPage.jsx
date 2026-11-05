@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Activity, BookOpen, CheckSquare, LayoutGrid, LogOut, Sparkles, TrendingUp } from "lucide-react";
+import { Activity, BookOpen, CheckSquare, LayoutGrid, LogOut, Settings, Sparkles, TrendingUp, Users } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api, clearSession } from "../api";
 
@@ -9,19 +9,24 @@ const links = [
   ["Daily Check-in", "/checkin", CheckSquare],
   ["Wellness Trends", "/trends", TrendingUp],
   ["AI Recommendations", "/recommendations", Sparkles],
+  ["Team Insights", "/team-insights", Users],
   ["Resources", "/resources", BookOpen],
+  ["Settings", "/settings", Settings],
 ];
-const titles = { trends: "Wellness trends", recommendations: "Your recommendations", resources: "Wellness resources" };
+const titles = { trends: "Wellness trends", recommendations: "Your recommendations", resources: "Wellness resources", "team-insights": "Team insights" };
 
 export default function WellnessPage({ page }) {
   const navigate = useNavigate();
   const [result, setResult] = useState({ key: "", data: null, error: "" });
   const [range, setRange] = useState("4w");
+  const [profile, setProfile] = useState(null);
+  const [shareError, setShareError] = useState("");
 
   useEffect(() => {
     const key = `${page}:${range}`;
     if (page === "trends") api.trends(range).then((data) => setResult({ key, data, error: "" })).catch((e) => setResult({ key, data: null, error: e.message }));
     if (page === "recommendations") api.recommendations().then((data) => setResult({ key, data, error: "" })).catch((e) => setResult({ key, data: null, error: e.message }));
+    if (page === "team-insights") api.profile().then(setProfile).catch((e) => setShareError(e.message));
   }, [page, range]);
 
   const key = `${page}:${range}`;
@@ -33,6 +38,10 @@ export default function WellnessPage({ page }) {
     clearSession();
     navigate("/");
   }
+  async function toggleSharing() {
+    try { const result = await api.share(!profile?.share_with_manager); setProfile({ ...profile, share_with_manager: result.share_with_manager }); setShareError(""); }
+    catch (e) { setShareError(e.message); }
+  }
 
   const recommendations = data?.recommendations || [];
   return <div className="min-h-screen flex bg-slate-50 text-slate-800">
@@ -43,7 +52,7 @@ export default function WellnessPage({ page }) {
     </aside>
     <main className="min-w-0 flex-1 p-4 sm:p-8">
       <nav className="md:hidden flex gap-2 overflow-x-auto mb-6 pb-1">{links.map(([label, path]) => <button key={path} onClick={() => navigate(path)} className="shrink-0 rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">{label}</button>)}<button onClick={logout} className="shrink-0 rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">Logout</button></nav>
-      <header className="mb-6"><h1 className="text-2xl font-semibold">{titles[page]}</h1><p className="text-sm text-slate-500 mt-1">{page === "trends" ? "Your check-in patterns over time" : page === "recommendations" ? "Suggestions based on your check-ins" : "Support for your wellbeing"}</p></header>
+      <header className="mb-6"><h1 className="text-2xl font-semibold">{titles[page]}</h1><p className="text-sm text-slate-500 mt-1">{page === "trends" ? "Your check-in patterns over time" : page === "recommendations" ? "Suggestions based on your check-ins" : page === "team-insights" ? "Learn how your team’s anonymous summaries protect your privacy" : "Support for your wellbeing"}</p></header>
       {error && <p role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error} <button onClick={() => { const currentKey = `${page}:${range}`; const request = page === "trends" ? api.trends(range) : api.recommendations(); request.then((value) => setResult({ key: currentKey, data: value, error: "" })).catch((e) => setResult({ key: currentKey, data: null, error: e.message })); }} className="underline">Try again</button></p>}
       {page === "trends" && <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <div className="flex flex-wrap justify-between items-center gap-3 mb-4"><h2 className="font-medium">Daily check-in trends</h2><label className="text-sm text-slate-500">Time period <select value={range} onChange={(e) => setRange(e.target.value)} className="ml-2 rounded border border-slate-200 px-2 py-1 text-slate-700"><option value="1w">1 week</option><option value="4w">4 weeks</option><option value="3m">3 months</option></select></label></div>
@@ -51,6 +60,7 @@ export default function WellnessPage({ page }) {
       </section>}
       {page === "recommendations" && <section className="space-y-3">{data === null && !error ? <p className="rounded-xl bg-white p-6 text-sm text-slate-500">Loading recommendations…</p> : recommendations.length ? recommendations.map((item, i) => <article key={`${i}-${item}`} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><div className="flex gap-3"><Sparkles className="w-5 h-5 text-violet-600 shrink-0"/><p className="text-sm text-slate-700">{item}</p></div></article>) : !error && <p className="rounded-xl bg-white p-6 text-sm text-slate-500">No recommendations available yet. Complete a check-in to receive suggestions.</p>}</section>}
       {page === "resources" && <section className="grid gap-4 sm:grid-cols-2"><article className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><h2 className="font-medium">Take a mindful pause</h2><p className="mt-2 text-sm text-slate-500">Step away from your screen, take a few slow breaths, and give yourself a short reset between tasks.</p></article><article className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><h2 className="font-medium">Talk to someone</h2><p className="mt-2 text-sm text-slate-500">Reach out to someone you trust or your workplace wellness team when you need support.</p></article><article className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><h2 className="font-medium">Protect your recovery time</h2><p className="mt-2 text-sm text-slate-500">Set a clear end to your workday where possible and make room for rest, movement, and sleep.</p></article><article className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><h2 className="font-medium">Need urgent help?</h2><p className="mt-2 text-sm text-slate-500">Contact your local emergency service or a qualified mental health professional.</p></article></section>}
+      {page === "team-insights" && <section className="max-w-2xl rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"><h2 className="font-medium">How team summaries work</h2><p className="mt-2 text-sm text-slate-600">Managers see aggregate wellness patterns only when enough people have opted in. Your individual check-ins and comments stay private.</p>{shareError && <p role="alert" className="mt-3 text-sm text-red-600">{shareError}</p>}<label className="mt-5 flex items-start gap-3 text-sm"><input type="checkbox" checked={Boolean(profile?.share_with_manager)} disabled={!profile} onChange={toggleSharing} className="mt-0.5 h-4 w-4 accent-violet-600"/><span>Allow my check-ins to contribute to anonymous team summaries</span></label><button onClick={() => navigate("/trends")} className="mt-5 rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">View my wellness trends</button></section>}
     </main>
   </div>;
 }

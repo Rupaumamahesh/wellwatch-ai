@@ -30,9 +30,9 @@ const navItems = [
   { label: "Daily Check-in", icon: CheckSquare, path: "/checkin" },
   { label: "Wellness Trends", icon: TrendingUp, path: "/trends" },
   { label: "AI Recommendations", icon: Sparkles, path: "/recommendations" },
-  { label: "Team Insights", icon: Users },
+  { label: "Team Insights", icon: Users, path: "/team-insights" },
   { label: "Resources", icon: BookOpen, path: "/resources" },
-  { label: "Settings", icon: Settings },
+  { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
 const toneClasses = {
@@ -272,11 +272,11 @@ export default function Dashboard() {
                 <CheckSquare className="w-4 h-4" aria-hidden="true" />
                 Daily Check-in
               </button>
-              <button className="flex flex-col items-center gap-2 rounded-xl bg-slate-50 text-slate-600 py-3 text-xs font-medium hover:bg-slate-100">
+              <button onClick={() => navigate("/reports")} className="flex flex-col items-center gap-2 rounded-xl bg-slate-50 text-slate-600 py-3 text-xs font-medium hover:bg-slate-100">
                 <BarChart2 className="w-4 h-4" aria-hidden="true" />
                 View Reports
               </button>
-              <button className="flex flex-col items-center gap-2 rounded-xl bg-slate-50 text-slate-600 py-3 text-xs font-medium hover:bg-slate-100">
+              <button onClick={() => navigate("/resources")} className="flex flex-col items-center gap-2 rounded-xl bg-slate-50 text-slate-600 py-3 text-xs font-medium hover:bg-slate-100">
                 <BookOpen className="w-4 h-4" aria-hidden="true" />
                 Resources
               </button>

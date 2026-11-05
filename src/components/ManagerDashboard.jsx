@@ -26,9 +26,9 @@ const riskCounts = [{ label: "Low risk", tone: "green" }, { label: "Medium risk"
 
 const navItems = [
   { label: "Team Overview", icon: LayoutGrid, active: true, path: "/manager-dashboard" },
-  { label: "Team Insights", icon: Users },
-  { label: "Reports", icon: BarChart2 },
-  { label: "Settings", icon: Settings },
+  { label: "Team Insights", icon: Users, path: "/manager-insights" },
+  { label: "Reports", icon: BarChart2, path: "/manager-reports" },
+  { label: "Settings", icon: Settings, path: "/manager-settings" },
 ];
 
 const toneClasses = {
@@ -45,9 +45,11 @@ export default function ManagerDashboard() {
   const [memberError, setMemberError] = useState("");
   const [memberForm, setMemberForm] = useState({ username: "", email: "", password: "" });
   const [savingMember, setSavingMember] = useState(false);
+  const [team, setTeam] = useState(null);
   useEffect(() => {
     api.teamStats().then(setData).catch((error) => setMessage(error.message));
     api.teamMembers().then((result) => setMembers(result.members || result)).catch((error) => setMemberError(error.message));
+    api.team().then(setTeam).catch((error) => setMessage(error.message));
   }, []);
 
   function handleLogout() {
@@ -92,14 +94,12 @@ export default function ManagerDashboard() {
         </div>
 
         <nav className="flex-1 px-3 space-y-1">
-          {navItems.map(({ label, icon: Icon, active, path }) => (
+          {navItems.map(({ label, icon: Icon, path }) => (
             <button
               key={label}
-              disabled={!path}
-              title={!path ? `${label} is not available yet` : undefined}
               onClick={() => path && navigate(path)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                active
+                path === "/manager-dashboard"
                   ? "bg-violet-600 text-white font-medium"
                   : "text-slate-400 hover:bg-white/5 hover:text-slate-200 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400"
               }`}
@@ -123,11 +123,11 @@ export default function ManagerDashboard() {
 
       {/* Main content */}
       <main className="min-w-0 flex-1 p-4 sm:p-8 overflow-y-auto">
-        <nav className="md:hidden flex gap-2 overflow-x-auto mb-6 pb-1">{navItems.filter(({path}) => path).map(({label,path}) => <button key={path} onClick={() => navigate(path)} className="shrink-0 rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">{label}</button>)}<button onClick={handleLogout} className="shrink-0 rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">Logout</button></nav>
+        <nav className="md:hidden flex gap-2 overflow-x-auto mb-6 pb-1">{navItems.map(({label,path}) => <button key={path} onClick={() => navigate(path)} className="shrink-0 rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">{label}</button>)}<button onClick={handleLogout} className="shrink-0 rounded-lg bg-white border border-slate-200 px-3 py-2 text-xs">Logout</button></nav>
         <header className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-slate-800">
-              Engineering team
+              {team?.name || "Your team"}
             </h1>
             <p className="text-sm text-slate-500 mt-1">
               Aggregated wellness overview
