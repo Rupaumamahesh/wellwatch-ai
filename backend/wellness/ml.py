@@ -62,9 +62,12 @@ def _load_model():
         return None
     # This fixed local artifact is trusted; never load a user-supplied pickle.
     with MODEL_PATH.open("rb") as artifact:
-        model = pickle.load(artifact)
-    if tuple(model.feature_names_in_) != FEATURES:
+        saved = pickle.load(artifact)
+    if saved.get("features") != FEATURES or saved.get("version") != 1:
         raise ValueError("Risk model feature schema does not match this application.")
+    model = saved["model"]
+    if model.n_features_in_ != len(FEATURES):
+        raise ValueError("Risk model feature count does not match this application.")
     return model
 
 

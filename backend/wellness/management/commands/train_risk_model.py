@@ -34,12 +34,12 @@ class Command(BaseCommand):
         risk += np.maximum(0, 3 - x[:, 5]) * 5 + np.maximum(0, x[:, 6] - 55) * .12
         risk += np.maximum(0, -x[:, 14]) * 2
         y = risk >= 65
-        model = RandomForestClassifier(n_estimators=120, max_depth=8, random_state=seed,
+        model = RandomForestClassifier(n_estimators=60, max_depth=8, random_state=seed,
                                        class_weight="balanced", n_jobs=-1)
         model.fit(x, y)
         MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
         with MODEL_PATH.open("wb") as artifact:
-            pickle.dump(model, artifact)
+            pickle.dump({"version": 1, "features": FEATURES, "model": model}, artifact)
         _load_model.cache_clear()
         self.stdout.write(self.style.SUCCESS(
             f"Saved demo model from {count} synthetic examples to {MODEL_PATH}; not clinically validated."

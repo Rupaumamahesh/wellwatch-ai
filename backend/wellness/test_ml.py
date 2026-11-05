@@ -1,4 +1,6 @@
 from datetime import date, timedelta
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -34,3 +36,24 @@ class RiskFeaturesTests(TestCase):
         self.assertEqual(level, "high")
         self.assertGreater(score, 65)
         self.assertIn("high stress", reasons)
+
+    def test_training_artifact_loads_and_scores(self):
+        from .management.commands.train_risk_model import Command
+        user = get_user_model().objects.create_user(username="trained")
+        checkin = CheckIn.objects.create(user=user, date=date(2026, 11, 6),
+                                         mood=2, stress=80, energy=20, sleep=30)
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "risk_model.pkl"
+            with patch("wellness.ml.MODEL_PATH", path), \
+                    patch("wellness.management.commands.train_risk_model.MODEL_PATH", path):
+                from . import ml
+                ml._load_model.cache_clear()
+                Command().handle(seed=42)
+                model = ml._load_model()
+                self.assertEqual(model.n_features_in_, len(FEATURES))
+                score, level, reasons = score_for_user(checkin)
+                self.assertGreaterEqual(score, 0)
+                self.assertLessEqual(score, 100)
+                self.assertIn(level, {"low", "medium", "high"})
+                self.assertTrue(reasons)
+                ml._load_model.cache_clear()
