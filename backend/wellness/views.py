@@ -1,8 +1,12 @@
+import binascii
 import statistics
 from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes
 from django.core.mail import send_mail
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -16,6 +20,68 @@ from rest_framework.response import Response
 from .models import CheckIn, RiskScore, Team, User
 from .permissions import IsManager
 from .serializers import CheckInSerializer, UserSerializer
+
+@api_view(["GET", "PATCH"])
+def profile(request):
+    if request.method == "PATCH":
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+    return Response(UserSerializer(request.user).data)
+
+@api_view(["PATCH"])
+def change_password(request):
+    current_password, new_password = request.data.get("current_password"), request.data.get("new_password")
+    if not isinstance(current_password, str) or not isinstance(new_password, str) or not new_password:
+        return Response({"detail": "current_password and new_password are required."}, status=400)
+    if not request.user.check_password(current_password):
+        return Response({"current_password": ["Current password is incorrect."]}, status=400)
+    try:
+        validate_password(new_password, request.user)
+    except ValidationError as exc:
+        return Response({"new_password": exc.messages}, status=400)
+    request.user.set_password(new_password)
+    request.user.save(update_fields=["password"])
+    Token.objects.filter(user=request.user).delete()
+    return Response({"detail": "Password updated. Please sign in again."})
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def forgot_password(request):
+    email = request.data.get("email")
+    if isinstance(email, str):
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+        if user:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173")
+            reset_url = f"{frontend_url.rstrip('/')}/reset-password?uid={uid}&token={token}"
+            sender = getattr(settings, "DEFAULT_FROM_EMAIL", "")
+            if sender:
+                send_mail("Reset your Wellwatch password", f"Use this link to reset your password: {reset_url}",
+                          sender, [user.email], fail_silently=True)
+    return Response({"detail": "If an account matches that email, password reset instructions have been sent."})
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def reset_password(request):
+    uid, token, password = request.data.get("uid"), request.data.get("token"), request.data.get("new_password")
+    if not all(isinstance(value, str) and value for value in (uid, token, password)):
+        return Response({"detail": "uid, token, and new_password are required."}, status=400)
+    try:
+        user = User.objects.get(pk=urlsafe_base64_decode(uid).decode(), is_active=True)
+    except (User.DoesNotExist, ValueError, TypeError, OverflowError, binascii.Error):
+        user = None
+    if not user or not default_token_generator.check_token(user, token):
+        return Response({"detail": "This password reset link is invalid or has expired."}, status=400)
+    try:
+        validate_password(password, user)
+    except ValidationError as exc:
+        return Response({"new_password": exc.messages}, status=400)
+    user.set_password(password)
+    user.save(update_fields=["password"])
+    Token.objects.filter(user=user).delete()
+    return Response({"detail": "Password reset. Please sign in."})
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
@@ -94,6 +160,11 @@ def trends(request):
         mood=Avg("mood"), stress=Avg("stress"), energy=Avg("energy"), sleep=Avg("sleep")).order_by("date")))
 
 @api_view(["GET"])
+def history(request):
+    rows = CheckIn.objects.filter(user=request.user).select_related("risk").order_by("date", "created_at")
+    return Response(CheckInSerializer(rows, many=True).data)
+
+@api_view(["GET"])
 def recommendations(request):
     risk = _latest_risk(request.user)
     recs = ["Keep your daily check-in habit."]
@@ -138,6 +209,23 @@ def team_stats(request):
         "risk_counts": {"low": sum(s < 35 for s in scores), "medium": sum(35 <= s < 65 for s in scores), "high": sum(s >= 65 for s in scores)},
         "stress_trend": trend,
     })
+
+@api_view(["GET", "PATCH"])
+@permission_classes([IsManager])
+def team_profile(request):
+    team = Team.objects.filter(manager=request.user).first()
+    if not team:
+        team = Team.objects.create(name=f"{request.user.username} Team", manager=request.user)
+    if request.method == "PATCH":
+        name = request.data.get("name")
+        if not isinstance(name, str) or not name.strip():
+            return Response({"name": ["A team name is required."]}, status=400)
+        name = name.strip()[:120]
+        if Team.objects.exclude(pk=team.pk).filter(name__iexact=name).exists():
+            return Response({"name": ["A team with this name already exists."]}, status=400)
+        team.name = name
+        team.save(update_fields=["name"])
+    return Response({"id": team.id, "name": team.name})
 
 @api_view(["GET", "POST", "DELETE"])
 @permission_classes([IsManager])

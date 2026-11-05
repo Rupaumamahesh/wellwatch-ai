@@ -7,6 +7,22 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "username", "email", "first_name", "role", "share_with_manager"]
+        read_only_fields = ["id", "role", "share_with_manager"]
+
+    def validate_username(self, value):
+        if User.objects.exclude(pk=self.instance.pk).filter(username__iexact=value).exists():
+            raise serializers.ValidationError("A user with this username already exists.")
+        return value
+
+    def validate_email(self, value):
+        if User.objects.exclude(pk=self.instance.pk).filter(email__iexact=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+    def validate(self, attrs):
+        if not attrs.get("username", getattr(self.instance, "username", "")):
+            raise serializers.ValidationError({"username": "This field may not be blank."})
+        return attrs
 
 class CheckInSerializer(serializers.ModelSerializer):
     risk = serializers.SerializerMethodField()
