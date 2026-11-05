@@ -9,7 +9,6 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [forgot, setForgot] = useState(false);
-  const [notice, setNotice] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -33,12 +32,6 @@ export default function Login() {
     }
   }
 
-  async function handleForgot(e) {
-    e.preventDefault(); setError(""); setNotice("");
-    try { const result = await api.forgotPassword(email); setNotice(result.detail || "If the account exists, password reset instructions have been sent."); }
-    catch (requestError) { setError(requestError.message); }
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-100 shadow-sm p-8">
@@ -56,11 +49,11 @@ export default function Login() {
           {forgot ? "Reset your password" : "Welcome back"}
         </h1>
         <p className="text-sm text-slate-500 text-center mb-6">
-          {forgot ? "Enter your account email and we’ll send reset instructions" : "Log in to continue to your dashboard"}
+          {forgot ? "Password reset by email is a future feature. Contact your manager for help." : "Log in to continue to your dashboard"}
         </p>
         {location.state?.notice && <p role="status" className="mb-4 text-center text-sm text-emerald-700">{location.state.notice}</p>}
 
-        {forgot ? <form onSubmit={handleForgot} className="space-y-4"><label className="block text-sm text-slate-600">Email<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm" /></label>{error && <p className="text-sm text-red-500" role="alert">{error}</p>}{notice && <p className="text-sm text-emerald-700" role="status">{notice}</p>}<button className="w-full rounded-lg bg-violet-600 py-2.5 text-sm font-medium text-white">Send reset email</button><button type="button" onClick={() => { setForgot(false); setError(""); setNotice(""); }} className="w-full text-sm text-violet-600">Back to login</button></form> : <form onSubmit={handleSubmit} className="space-y-4">
+        {forgot ? <div className="space-y-4"><p className="text-center text-sm text-slate-500">Please contact your manager to reset your password.</p><button type="button" onClick={() => { setForgot(false); setError(""); }} className="w-full text-sm text-violet-600">Back to login</button></div> : <form onSubmit={handleSubmit} className="space-y-4">
           {/* Role selector */}
           <div>
             <label className="block text-sm text-slate-600 mb-1">

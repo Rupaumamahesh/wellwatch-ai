@@ -58,15 +58,6 @@ export default function ManagerDashboard() {
     navigate("/");
   }
 
-  async function handleNotifyHR() {
-    try {
-      const result = await api.notifyHr();
-      setMessage(result.detail || "HR wellness team has been notified.");
-    } catch (error) {
-      setMessage(error.message);
-    }
-  }
-
   async function addMember(e) {
     e.preventDefault(); setMemberError(""); setSavingMember(true);
     try { await api.addTeamMember(memberForm); setMemberForm({ username: "", email: "", password: "" }); setMembers(await api.teamMembers().then((result) => result.members || result)); }
@@ -206,12 +197,15 @@ export default function ManagerDashboard() {
               {data?.count ? `${counts.high ?? 0} members in the high risk group` : "No shared check-in data available"}
             </p>
             <button
-              onClick={handleNotifyHR}
-              className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg py-2.5 transition-colors"
+              type="button"
+              disabled
+              className="w-full flex items-center justify-center gap-2 bg-slate-200 text-slate-500 text-sm font-medium rounded-lg py-2.5 cursor-not-allowed"
+              aria-describedby="notify-hr-status"
             >
               <Bell className="w-4 h-4" aria-hidden="true" />
               Notify HR wellness team
             </button>
+            <p id="notify-hr-status" className="mt-2 text-xs text-slate-500">Email notifications are a future feature.</p>
           </div>
         </div>
         <section className="mt-6 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
