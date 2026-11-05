@@ -10,9 +10,9 @@ Employee wellness check-ins, personal trends, and consent-based team insights. B
 | --- | --- |
 | Daily mood, stress, energy, and sleep check-ins | Team naming and employee account management |
 | Personal trends, history, and CSV reports | Aggregate team insights and CSV reports |
-| Recommendations and wellness resources | HR wellness notification emails |
+| Recommendations and wellness resources | HR notification UI marked as a future feature |
 | Consent controls for team summaries | Small-cohort privacy protection |
-| Profile settings and password recovery | Profile settings and password recovery |
+| Profile settings and authenticated password changes | Profile settings and authenticated password changes |
 
 Individual check-ins and comments are not exposed in team reports. Groups and daily trend points with fewer than three contributors are suppressed.
 
@@ -32,20 +32,17 @@ flowchart LR
     RF --> DB
     API --> P[Consent and cohort checks]
     P --> T[Aggregate team summaries]
-    API --> Mail[Local email files or SMTP]
+    API -. Future feature .-> Mail[Email notifications]
 ```
 
-Vite proxies `/api` to Django during development. In the container stack, Nginx serves the built frontend and proxies `/api` to Waitress.
+Vite proxies `/api` to Django during local development. SMTP, Docker, and public hosting are deferred; none is required to run or review the project.
 
 ## Run locally on Windows
 
-Use Node 24+, Python 3.11, and uv. The setup script generates private local credentials when `.env` is absent. Alternatively, copy `.env.example` to `.env` first and replace its placeholder password and Django secret. Do not commit `.env`.
+Use Node 24+ and uv on Windows. uv provisions Python 3.11 if needed. The setup script generates private local credentials when `.env` is absent. Alternatively, copy `.env.example` to `.env` first and replace its placeholder password and Django secret. Do not commit `.env`.
 
 ```powershell
-npm ci
-uv venv .venv --python 3.11
-uv pip install --python .venv/Scripts/python.exe -r backend/requirements.txt
-./scripts/setup-postgres.ps1
+./setup-local.ps1
 ./run-local.ps1
 ```
 
@@ -58,23 +55,23 @@ Open [localhost:5173](http://localhost:5173). Setup downloads pinned PostgreSQL 
 | Frontend | [localhost:5173](http://localhost:5173) |
 | API | `127.0.0.1:8000/api` |
 | PostgreSQL | `127.0.0.1:55432` |
-| Review email files | `backend/local-emails/` |
+| Demo login file | `.local/demo-accounts.json` |
 
-Set `HR_EMAIL` in `.env` before testing HR notifications, then restart Django. Forgot-password messages contain a reset link for the registered account email; `FRONTEND_URL` controls its origin. Local email files are a review inbox, not external delivery. Review accounts are retained in this checkout's private database; no passwords are committed.
+### Fictional demo accounts
 
-Create the first account, then promote it to manager with the Django shell if needed:
+Setup creates two teams with fictional Indian employees and managers, with varied synthetic check-ins over the preceding four weeks. Each account receives a unique randomly generated password. Find the email, role, and password in ignored `.local/demo-accounts.json`; do not upload or share that file publicly. Choose a manager or employee email from that file to explore both experiences.
+
+The seed command is idempotent: it preserves existing passwords and check-ins and does not replace unrelated user accounts. Run it again with:
 
 ```powershell
-.venv/Scripts/python.exe backend/manage.py createsuperuser
-.venv/Scripts/python.exe backend/manage.py shell
+.venv/Scripts/python.exe backend/manage.py seed_demo
 ```
 
-```python
-from wellness.models import User
-User.objects.filter(username="your-user").update(role="manager")
-```
+Names and wellness histories are fictional demonstration data, not real people or medical records. Private demo data, credentials, model files, and database backups remain outside Git. Role permissions come from the account stored in the database, not the login selector.
 
-Log in with the account's email and password. Managers can create employee accounts through Settings or the team dashboard. Permissions come from the account's stored role, not the role selected on the login form.
+### Email features are deferred
+
+HR notification and email password recovery controls are disabled and marked as future features. The backend also rejects delivery requests while these features are deferred. Authenticated password changes remain available in Settings. For a forgotten local account password, a trusted project administrator can use Django's `changepassword` command.
 
 ## Project map
 
@@ -89,19 +86,9 @@ compose.yaml              PostgreSQL, Django, Nginx, and Mailpit
 .github/workflows/        Frontend and PostgreSQL-backed API checks
 ```
 
-## Docker Compose stack
+## Deferred deployment work
 
-Docker Compose runs PostgreSQL, Django with Waitress, the Nginx frontend/reverse proxy, and Mailpit as a local SMTP review inbox. Set private values in `.env` before starting; the Compose service requires `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `DJANGO_SECRET_KEY`.
-
-```powershell
-docker compose up --build -d
-```
-
-Open the app at [127.0.0.1:8080](http://127.0.0.1:8080) and Mailpit at [127.0.0.1:8025](http://127.0.0.1:8025). The database is persistent in the `postgres_data` volume, separate from the portable Windows cluster. Compose migrations run when the backend starts. Mailpit accepts messages for review and does not deliver them externally. To route HR notifications in a real deployment, configure a real SMTP host, port, TLS mode, username, password, sender, and `HR_EMAIL` through the deployment's secret manager; no provider credentials are included here.
-
-Set `FRONTEND_URL=http://localhost:8080` for Compose password-reset links. For the local Compose inbox, use `EMAIL_HOST=mailpit`, `EMAIL_PORT=1025`, `EMAIL_USE_TLS=0`, and a review `HR_EMAIL`. Container execution has not been verified on this machine because Docker is unavailable.
-
-For production, set `DJANGO_DEBUG=0`, replace the Mailpit SMTP settings with a real provider, and provide a random `DJANGO_SECRET_KEY`, allowed host names, SMTP credentials, sender and HR addresses, and the public browser origin in `CORS_ALLOWED_ORIGINS`. Keep the web service behind a TLS terminating reverse proxy and preserve the incoming `X-Forwarded-Proto` header. The published Compose ports bind to loopback so a host proxy can reach them; do not expose PostgreSQL or Mailpit publicly. Back up `postgres_data` and verify restores before upgrading.
+SMTP delivery, Docker execution, and public hosting are outside the current local release. Existing container configuration is retained for future work and is not required for teammate setup. No email provider, Docker installation, domain, or hosting account is needed.
 
 ## Wellness risk model
 
@@ -125,7 +112,7 @@ npm audit --audit-level=high
 .venv/Scripts/python.exe backend/manage.py makemigrations --check --dry-run
 ```
 
-GitHub Actions runs frontend checks and backend tests against PostgreSQL 17. Local commits are GPG-signed; nothing is pushed automatically.
+GitHub Actions runs frontend checks and backend tests against PostgreSQL 17. Source commits are GPG-signed; the setup scripts never push changes.
 
 The isolated local database role has `CREATEDB` so Django can create its test database. For hosted production, use separate migration/test credentials and a restricted runtime role.
 
@@ -138,4 +125,8 @@ The isolated local database role has `CREATEDB` so Django can create its test da
 
 Run `./scripts/backup-postgres.ps1` to save a custom-format dump under ignored `.local/backups/`. Use `pg_restore` against a separate empty database to verify a backup before relying on it. `./scripts/stop-postgres.ps1` stops only this project database. The original SQLite review database is retained unchanged.
 
-For production HTTPS proxies set `TRUST_PROXY=1` only when the proxy overwrites forwarded headers, `FRONTEND_URL` to the public app origin, and `CSRF_TRUSTED_ORIGINS` to its HTTPS origin. No public hosting account or production SMTP credentials are included. Local notification files and Compose Mailpit provide real delivery to a review inbox without sending externally.
+The portable PostgreSQL database is loopback-only. Its administrator credential is generated separately from the application password and kept in ignored `.local/`. Never commit `.env`, demo login files, backups, or database artifacts.
+
+## Contributing
+
+Run the checks above before opening a pull request. This contribution preserves the original violet/slate design and adds local setup, sample data, tested APIs, and complete employee/manager screens. Real-world evaluation of the synthetic model and any hosted deployment remain future work.

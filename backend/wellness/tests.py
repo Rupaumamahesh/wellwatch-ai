@@ -8,6 +8,7 @@ from django.utils.http import urlsafe_base64_encode
 from rest_framework.test import APIClient
 from .models import CheckIn, RiskScore, Team, User
 
+@override_settings(EMAIL_FEATURES_ENABLED=True)
 class ApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -222,3 +223,14 @@ class ApiTests(TestCase):
         trend = self.client.get("/api/team/stats").data["stress_trend"]
         self.assertEqual(len(trend), 1)
         self.assertEqual(trend[0]["stress"], 20)
+
+
+class DeferredEmailTests(TestCase):
+    def test_email_endpoints_are_disabled_without_delivery(self):
+        client = APIClient()
+        for path in ("password/forgot", "password/reset"):
+            self.assertEqual(client.post(f"/api/{path}", {}, format="json").status_code, 503)
+        manager = User.objects.create_user(username="future.manager", role="manager")
+        client.force_authenticate(user=manager)
+        self.assertEqual(client.post("/api/team/notify-hr", {}, format="json").status_code, 503)
+        self.assertEqual(len(mail.outbox), 0)

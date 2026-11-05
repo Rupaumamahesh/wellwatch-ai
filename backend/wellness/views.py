@@ -49,6 +49,8 @@ def change_password(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def forgot_password(request):
+    if not settings.EMAIL_FEATURES_ENABLED:
+        return Response({"detail": "Email delivery is planned for a future release."}, status=503)
     email = request.data.get("email") if hasattr(request.data, "get") else None
     if isinstance(email, str):
         user = User.objects.filter(email__iexact=email, is_active=True).first()
@@ -66,6 +68,8 @@ def forgot_password(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def reset_password(request):
+    if not settings.EMAIL_FEATURES_ENABLED:
+        return Response({"detail": "Email delivery is planned for a future release."}, status=503)
     data = request.data if hasattr(request.data, "get") else {}
     uid, token, password = data.get("uid"), data.get("token"), data.get("new_password")
     if not all(isinstance(value, str) and value for value in (uid, token, password)):
@@ -284,6 +288,8 @@ def team_members(request):
 @api_view(["POST"])
 @permission_classes([IsManager])
 def notify_hr(request):
+    if not settings.EMAIL_FEATURES_ENABLED:
+        return Response({"detail": "Email delivery is planned for a future release."}, status=503)
     recipient = getattr(settings, "HR_EMAIL", "")
     sender = getattr(settings, "DEFAULT_FROM_EMAIL", "")
     if not recipient or not sender:

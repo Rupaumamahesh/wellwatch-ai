@@ -88,13 +88,16 @@ class Command(BaseCommand):
                         defaults={"score": score, "level": level, "explanation": explanation},
                     )
 
-        credentials.update(new_credentials)
-        manifest.parent.mkdir(parents=True, exist_ok=True)
-        manifest.write_text(json.dumps({"accounts": credentials}, indent=2) + "\n", encoding="utf-8")
-        try:
-            manifest.chmod(0o600)
-        except OSError:
-            pass
+            credentials.update(new_credentials)
+            manifest.parent.mkdir(parents=True, exist_ok=True)
+            pending = manifest.with_suffix(".tmp")
+            try:
+                pending.write_text(json.dumps({"accounts": credentials}, indent=2) + "\n", encoding="utf-8")
+                pending.chmod(0o600)
+                pending.replace(manifest)
+            except OSError as error:
+                pending.unlink(missing_ok=True)
+                raise CommandError("Unable to save private demo logins; no accounts were created.") from error
         self.stdout.write(self.style.SUCCESS(
             f"Seeded fictional demo users and histories. Credentials: {manifest}. Synthetic data only; no medical claims."
         ))
@@ -105,7 +108,10 @@ class Command(BaseCommand):
             return {}
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-            return data["accounts"]
+            accounts = data["accounts"]
+            if not isinstance(accounts, dict):
+                raise ValueError("accounts must be an object")
+            return accounts
         except (OSError, ValueError, KeyError, TypeError) as error:
             raise CommandError(f"Cannot read demo credentials manifest {path}: {error}") from error
 
@@ -123,5 +129,5 @@ class Command(BaseCommand):
             username=username, email=email, first_name=first, last_name=last,
             password=password, role=role, share_with_manager=(role == "employee"),
         )
-        new_credentials[username] = {"email": email, "password": password}
+        new_credentials[username] = {"name": f"{first} {last}", "email": email, "role": role, "password": password}
         return user

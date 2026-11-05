@@ -67,3 +67,12 @@ class SeedDemoTests(TestCase):
             call_command("seed_demo", verbosity=0)
         self.assertTrue(User.objects.get(username="demo.ishaan").check_password("keep"))
         self.assertFalse(User.objects.filter(username="demo.neha").exists())
+
+    def test_manifest_write_failure_rolls_back_created_accounts(self):
+        with TemporaryDirectory() as directory, \
+                override_settings(BASE_DIR=Path(directory) / "backend"), \
+                patch("wellness.ml._load_model", return_value=None), \
+                patch.object(Path, "write_text", side_effect=OSError("unwritable")):
+            with self.assertRaises(CommandError):
+                call_command("seed_demo", verbosity=0)
+        self.assertFalse(User.objects.filter(username__startswith="demo.").exists())
