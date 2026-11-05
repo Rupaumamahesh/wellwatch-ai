@@ -1,3 +1,5 @@
+![WellWatch AI — Employee wellbeing. Thoughtful insights.](docs/images/wellwatch-banner.png)
+
 # WellWatch AI
 
 Employee wellness check-ins, personal trends, and consent-based team insights. Built with React, Django REST Framework, and PostgreSQL, using the existing violet/slate interface.
