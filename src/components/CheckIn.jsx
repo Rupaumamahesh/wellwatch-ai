@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Activity, ArrowLeft, Check } from "lucide-react";
+import { api } from "../api";
 
 const MOODS = [
   { value: 1, emoji: "😞", label: "Very low" },
@@ -26,14 +27,12 @@ export default function CheckIn() {
   const [submitted, setSubmitted] = useState(false);
   const [alreadyCheckedIn, setAlreadyCheckedIn] = useState(false);
 
-  // Prevent duplicate check-ins on the same day
+  // The backend is authoritative for the one-check-in-per-day rule.
   useEffect(() => {
-    const all = JSON.parse(localStorage.getItem("wellwatch_checkins") || "[]");
-    const existing = all.find((c) => c.date === todayKey());
-    if (existing) setAlreadyCheckedIn(true);
+    api.dashboard().then((data) => setAlreadyCheckedIn(Boolean(data.checked_in_today))).catch(() => {});
   }, []);
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
 
     if (mood === null) {
@@ -43,23 +42,13 @@ export default function CheckIn() {
 
     setError("");
 
-    const entry = {
-      date: todayKey(),
-      mood,
-      stress,
-      energy,
-      sleep,
-      comment: comment.trim(),
-      timestamp: new Date().toISOString(),
-    };
-
-    // TODO: replace with a real API call, e.g. POST /api/checkin
-    const all = JSON.parse(localStorage.getItem("wellwatch_checkins") || "[]");
-    all.push(entry);
-    localStorage.setItem("wellwatch_checkins", JSON.stringify(all));
-
-    setSubmitted(true);
-    setTimeout(() => navigate("/dashboard"), 1200);
+    try {
+      await api.checkIn({ date: todayKey(), mood, stress, energy, sleep, comment: comment.trim() });
+      setSubmitted(true);
+      setTimeout(() => navigate("/dashboard"), 1200);
+    } catch (requestError) {
+      setError(requestError.message);
+    }
   }
 
   return (

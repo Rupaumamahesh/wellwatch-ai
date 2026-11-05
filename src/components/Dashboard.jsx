@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutGrid,
@@ -22,6 +23,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { api, clearSession } from "../api";
 
 // ---- Sample data (swap for real API data later) ----
 const burnoutTrend = [
@@ -113,11 +115,34 @@ function WellnessBar({ label, value, tone }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [sharing, setSharing] = useState(false);
+
+  useEffect(() => {
+    api.dashboard().then((result) => {
+      setData(result);
+      setSharing(Boolean(result.user?.share_with_manager));
+    }).catch((requestError) => setError(requestError.message));
+  }, []);
 
   function handleLogout() {
-    localStorage.removeItem("wellwatch_role");
-    localStorage.removeItem("wellwatch_loggedIn");
+    api.logout().catch(() => {});
+    clearSession();
     navigate("/");
+  }
+
+  const risk = data?.risk_probability != null ? Math.round(data.risk_probability * 100) : 0;
+  const factors = data?.factors || wellnessFactors.map((factor) => ({ ...factor }));
+
+  async function toggleSharing() {
+    try {
+      const result = await api.share(!sharing);
+      setSharing(result.share_with_manager);
+      setData((current) => ({ ...current, user: { ...current.user, share_with_manager: result.share_with_manager } }));
+    } catch (requestError) {
+      setError(requestError.message);
+    }
   }
 
   return (
@@ -168,20 +193,21 @@ export default function Dashboard() {
             Here's your wellness overview for today.
           </p>
         </header>
+        {error && <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">{error} Start the Django API to load live data.</p>}
 
         {/* Top metric cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <MetricCard
             title="Burnout Risk"
-            badge="Moderate"
-            badgeTone="amber"
-            value="62"
+            badge={data?.risk_level || "No data"}
+            badgeTone={data?.risk_level === "high" ? "red" : "amber"}
+            value={risk}
             unit="/ 100"
             subtext="Based on workload & stress factors"
           />
           <MetricCard
             title="Check-in Streak"
-            value="14"
+            value={data?.streak ?? 0}
             unit="Days"
             subtext="Great going! Keep it up"
             icon={Sparkles}
@@ -190,7 +216,7 @@ export default function Dashboard() {
             title="Wellness Score"
             badge="Good"
             badgeTone="green"
-            value="78"
+            value={data?.wellness_score ?? "—"}
             unit="/ 100"
             subtext="Increased by 4 points from last week"
           />
@@ -211,7 +237,7 @@ export default function Dashboard() {
             </div>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={burnoutTrend}>
+                <LineChart data={data?.risk_trend || burnoutTrend}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef0f5" />
                   <XAxis
                     dataKey="week"
@@ -235,7 +261,7 @@ export default function Dashboard() {
 
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <h2 className="font-medium text-slate-800 mb-4">Wellness Factors</h2>
-            {wellnessFactors.map((f) => (
+            {factors.map((f) => (
               <WellnessBar key={f.label} {...f} />
             ))}
           </div>
@@ -247,11 +273,7 @@ export default function Dashboard() {
             <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <h3 className="font-medium text-slate-800 mb-1">AI Wellness Insight</h3>
-              <p className="text-sm text-slate-600">
-                Your stress level has been high for 3 days in a row. Consider
-                trying our recommended micro-breaks or breathing exercises to
-                help decompress.
-              </p>
+              <p className="text-sm text-slate-600">{data?.insight || "Complete your first check-in to receive a personal wellness insight."}</p>
             </div>
           </div>
 
@@ -274,6 +296,12 @@ export default function Dashboard() {
                 Resources
               </button>
             </div>
+            <button
+              onClick={toggleSharing}
+              className="mt-4 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50"
+            >
+              {data?.user?.share_with_manager ? "Shared with manager (turn off)" : "Keep my details private"}
+            </button>
           </div>
         </div>
       </main>

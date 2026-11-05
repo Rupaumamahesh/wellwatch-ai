@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Activity, Mail, Lock, ChevronDown } from "lucide-react";
+import { api } from "../api";
 
 export default function Login() {
   const [role, setRole] = useState("employee");
@@ -9,7 +10,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
 
     if (!email || !password) {
@@ -18,16 +19,14 @@ export default function Login() {
     }
 
     setError("");
-
-    // TODO: replace with a real API call to your Django auth endpoint
-    // e.g. POST /api/login  { email, password, role }
-    localStorage.setItem("wellwatch_loggedIn", "true");
-    localStorage.setItem("wellwatch_role", role);
-
-    if (role === "manager") {
-      navigate("/manager-dashboard");
-    } else {
-      navigate("/dashboard");
+    try {
+      const data = await api.login({ email, password, role });
+      localStorage.setItem("wellwatch_token", data.access || data.token);
+      localStorage.setItem("wellwatch_loggedIn", "true");
+      localStorage.setItem("wellwatch_role", data.role || role);
+      navigate((data.role || role) === "manager" ? "/manager-dashboard" : "/dashboard");
+    } catch (requestError) {
+      setError(requestError.message);
     }
   }
 

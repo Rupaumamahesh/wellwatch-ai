@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutGrid,
@@ -19,6 +20,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { api, clearSession } from "../api";
 
 // ---- Sample data (swap for real API data later) ----
 const teamStressTrend = [
@@ -47,19 +49,30 @@ const toneClasses = {
   red: "text-red-600",
 };
 
-function handleNotifyHR() {
-  // TODO: replace with a real API call, e.g. POST /api/notify-hr
-  alert("HR wellness team has been notified.");
-}
-
 export default function ManagerDashboard() {
   const navigate = useNavigate();
+  const [data, setData] = useState(null);
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    api.teamStats().then(setData).catch((error) => setMessage(error.message));
+  }, []);
 
   function handleLogout() {
-    localStorage.removeItem("wellwatch_role");
-    localStorage.removeItem("wellwatch_loggedIn");
+    api.logout().catch(() => {});
+    clearSession();
     navigate("/");
   }
+
+  async function handleNotifyHR() {
+    try {
+      const result = await api.notifyHr();
+      setMessage(result.detail || "HR wellness team has been notified.");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  const counts = data?.risk_counts || {};
 
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">
@@ -116,6 +129,7 @@ export default function ManagerDashboard() {
             No individual data shown
           </div>
         </header>
+        {message && <p className="mb-4 rounded-lg bg-violet-50 px-4 py-3 text-sm text-violet-700">{message}</p>}
 
         {/* Risk count cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -126,7 +140,7 @@ export default function ManagerDashboard() {
             >
               <p className="text-sm text-slate-500 mb-2">{r.label}</p>
               <p className={`text-3xl font-semibold ${toneClasses[r.tone]}`}>
-                {r.value}
+                {counts[r.label.replace(" risk", "").toLowerCase()] ?? 0}
               </p>
             </div>
           ))}
@@ -142,7 +156,7 @@ export default function ManagerDashboard() {
           </div>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={teamStressTrend}>
+              <LineChart data={data?.stress_trend || teamStressTrend}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef0f5" />
                 <XAxis
                   dataKey="week"
@@ -181,7 +195,7 @@ export default function ManagerDashboard() {
 
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col justify-between">
             <p className="text-sm text-slate-500 mb-3">
-              2 members at high risk this week
+              {counts.high ?? 0} members at high risk this week
             </p>
             <button
               onClick={handleNotifyHR}
