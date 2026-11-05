@@ -40,6 +40,7 @@ export const api = {
   forgotPassword: (email) => request("/password/forgot", { method: "POST", body: JSON.stringify({ email }) }),
   resetPassword: (uid, token, new_password) => request("/password/reset", { method: "POST", body: JSON.stringify({ uid, token, new_password }) }),
   history: () => request("/me/history"),
+  employeeTeamStats: () => request("/me/team-stats"),
   share: (shared_with_manager) => request("/me/share", { method: "PATCH", body: JSON.stringify({ shared_with_manager }) }),
   teamStats: () => request("/team/stats"),
   team: () => request("/team"),

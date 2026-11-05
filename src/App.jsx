@@ -9,6 +9,7 @@ import SettingsPage from "./components/SettingsPage";
 import ReportsPage from "./components/ReportsPage";
 import ManagerInsights from "./components/ManagerInsights";
 import PasswordReset from "./components/PasswordReset";
+import EmployeeInsights from "./components/EmployeeInsights";
 
 function App() {
   return (
@@ -23,7 +24,7 @@ function App() {
         <Route path="/resources" element={<WellnessPage page="resources" />} />
         <Route path="/settings" element={<SettingsPage role="employee" />} />
         <Route path="/reports" element={<ReportsPage role="employee" />} />
-        <Route path="/team-insights" element={<WellnessPage page="team-insights" />} />
+        <Route path="/team-insights" element={<EmployeeInsights />} />
       </Route>
       <Route element={<ProtectedRoute role="manager" />}>
         <Route path="/manager-dashboard" element={<ManagerDashboard />} />

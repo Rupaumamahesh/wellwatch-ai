@@ -30,7 +30,7 @@ export default function SettingsPage({ role }) {
   async function changePassword(e) {
     e.preventDefault(); setError(""); setStatus("");
     if (password.new_password !== password.confirm) { setError("New passwords do not match."); return; }
-    try { const result = await api.changePassword(password.current_password, password.new_password); setPassword({ current_password: "", new_password: "", confirm: "" }); setStatus(result.detail || "Password changed."); }
+    try { await api.changePassword(password.current_password, password.new_password); clearSession(); navigate("/", { state: { notice: "Password updated. Sign in with your new password." } }); }
     catch (e) { setError(e.message); }
   }
   async function setSharing(value) {

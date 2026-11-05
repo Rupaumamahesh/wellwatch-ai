@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Activity, Mail, Lock, ChevronDown } from "lucide-react";
 import { api } from "../api";
 
@@ -11,6 +11,7 @@ export default function Login() {
   const [forgot, setForgot] = useState(false);
   const [notice, setNotice] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -57,6 +58,7 @@ export default function Login() {
         <p className="text-sm text-slate-500 text-center mb-6">
           {forgot ? "Enter your account email and we’ll send reset instructions" : "Log in to continue to your dashboard"}
         </p>
+        {location.state?.notice && <p role="status" className="mb-4 text-center text-sm text-emerald-700">{location.state.notice}</p>}
 
         {forgot ? <form onSubmit={handleForgot} className="space-y-4"><label className="block text-sm text-slate-600">Email<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm" /></label>{error && <p className="text-sm text-red-500" role="alert">{error}</p>}{notice && <p className="text-sm text-emerald-700" role="status">{notice}</p>}<button className="w-full rounded-lg bg-violet-600 py-2.5 text-sm font-medium text-white">Send reset email</button><button type="button" onClick={() => { setForgot(false); setError(""); setNotice(""); }} className="w-full text-sm text-violet-600">Back to login</button></form> : <form onSubmit={handleSubmit} className="space-y-4">
           {/* Role selector */}
