@@ -1,7 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+const API_BASE = import.meta.env?.VITE_API_URL || "/api";
 
 async function request(path, options = {}) {
-  const token = localStorage.getItem("wellwatch_token");
+  const token = ["/login", "/password/forgot", "/password/reset"].includes(path) ? null : localStorage.getItem("wellwatch_token");
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
