@@ -5,3 +5,4 @@ psycopg[binary]==3.3.8
 vaderSentiment==3.3.2
 scikit-learn==1.9.1
 waitress==3.0.2
+python-dotenv==1.2.1

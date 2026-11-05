@@ -38,3 +38,5 @@ backend/wellness/risk_model.pkl
 .playwright-mcp/
 dashboard-*.png
 Things to do.pdf
+
+.local/
