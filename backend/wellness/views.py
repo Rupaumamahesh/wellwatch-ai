@@ -6,7 +6,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.mail import send_mail
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Avg, Count
+from django.db.models import Avg
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -121,9 +121,12 @@ def team_stats(request):
         if latest:
             latest_by_member.append(latest)
     scores = [r.score for r in latest_by_member]
-    week_ago = timezone.localdate() - timedelta(days=6)
-    trend = list(CheckIn.objects.filter(user__in=members, date__gte=week_ago).values("date").annotate(
-        stress=Avg("stress"), contributors=Count("user", distinct=True)).filter(contributors__gte=3).values("date", "stress").order_by("date"))
+    since = timezone.localdate() - timedelta(days=27)
+    daily_stress = {}
+    for row in CheckIn.objects.filter(user__in=members, date__gte=since).values("date", "stress").order_by("date"):
+        daily_stress.setdefault(row["date"], []).append(row["stress"])
+    trend = [{"date": date, "stress": statistics.median(values)}
+             for date, values in daily_stress.items() if len(values) >= 3]
     # Small cohorts can reveal one person's wellness values through aggregate changes.
     if len(scores) < 3:
         return Response({"count": 0, "median": None, "std": 0, "at_risk": 0,

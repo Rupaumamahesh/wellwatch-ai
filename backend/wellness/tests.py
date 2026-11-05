@@ -128,3 +128,17 @@ class ApiTests(TestCase):
         response = self.client.post("/api/team/notify-hr", {}, format="json")
         self.assertEqual(response.status_code, 503)
         self.assertFalse(response.data["notified"])
+
+    def test_daily_trends_require_three_contributors_and_use_median(self):
+        today = timezone.localdate()
+        for index, stress in enumerate((10, 20, 90)):
+            member = User.objects.create_user(username=f"trend{index}", share_with_manager=True)
+            self.team.members.add(member)
+            checkin = CheckIn.objects.create(user=member, date=today, mood=3, stress=stress, energy=50, sleep=50)
+            RiskScore.objects.create(user=member, checkin=checkin, score=50, level="medium")
+            if index == 0:
+                CheckIn.objects.create(user=member, date=today-timedelta(days=1), mood=3, stress=90, energy=50, sleep=50)
+        self.auth(self.manager)
+        trend = self.client.get("/api/team/stats").data["stress_trend"]
+        self.assertEqual(len(trend), 1)
+        self.assertEqual(trend[0]["stress"], 20)
