@@ -250,6 +250,20 @@ def team_members(request):
         members = User.objects.filter(teams__in=teams).distinct().order_by("username")
         return Response(UserSerializer(members, many=True).data)
     if request.method == "POST":
+        # Add existing user by user_id
+        user_id = request.data.get("user_id") if hasattr(request.data, "get") else None
+        if isinstance(user_id, int) and not isinstance(user_id, bool):
+            user = User.objects.filter(id=user_id, is_active=True).first()
+            if not user:
+                return Response({"detail": "User not found."}, status=404)
+            team = teams.first()
+            if not team:
+                team = Team.objects.create(name=f"{request.user.username} Team", manager=request.user)
+            if team.members.filter(id=user_id).exists():
+                return Response({"detail": "User is already a member of this team."}, status=400)
+            team.members.add(user)
+            return Response(UserSerializer(user).data, status=201)
+        # Create new user and add to team
         required = ("username", "email", "password")
         if any(not isinstance(request.data.get(k), str) or not request.data[k] for k in required):
             return Response({"detail": "username, email, and password are required."}, status=400)
@@ -402,6 +416,7 @@ def admin_teams(request):
             "id": t.id, "name": t.name,
             "manager": {"id": t.manager.id, "username": t.manager.username},
             "member_count": t.members.count(),
+            "members": [{"id": m.id, "username": m.username} for m in t.members.all()],
         } for t in teams])
     data = request.data if hasattr(request.data, "get") else {}
     name = data.get("name")
@@ -428,6 +443,44 @@ def admin_team_detail(request, team_id):
         return Response({"detail": "Team not found."}, status=404)
     team.delete()
     return Response(status=204)
+
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def admin_team_members(request, team_id):
+    team = Team.objects.filter(id=team_id).first()
+    if not team:
+        return Response({"detail": "Team not found."}, status=404)
+    data = request.data if hasattr(request.data, "get") else {}
+    user_id = data.get("user_id")
+    if not isinstance(user_id, int) or isinstance(user_id, bool):
+        return Response({"user_id": ["A valid user id is required."]}, status=400)
+    user = User.objects.filter(id=user_id, is_active=True).first()
+    if not user:
+        return Response({"detail": "User not found."}, status=404)
+    if team.members.filter(id=user_id).exists():
+        return Response({"detail": "User is already a member of this team."}, status=400)
+    team.members.add(user)
+    return Response({"id": user.id, "username": user.username, "email": user.email}, status=201)
+
+@api_view(["DELETE"])
+@permission_classes([IsAdmin])
+def admin_team_member_detail(request, team_id, user_id):
+    team = Team.objects.filter(id=team_id).first()
+    if not team:
+        return Response({"detail": "Team not found."}, status=404)
+    user = team.members.filter(id=user_id).first()
+    if not user:
+        return Response({"detail": "User is not a member of this team."}, status=404)
+    team.members.remove(user)
+    return Response(status=204)
+
+@api_view(["GET"])
+@permission_classes([IsManager])
+def team_eligible_members(request):
+    teams = Team.objects.filter(manager=request.user)
+    already_in_team = User.objects.filter(teams__in=teams).distinct().values_list("id", flat=True)
+    eligible = User.objects.filter(is_active=True).exclude(id__in=already_in_team).exclude(id=request.user.id).order_by("username")
+    return Response([{"id": u.id, "username": u.username, "email": u.email, "role": u.role} for u in eligible])
 
 @api_view(["POST"])
 @permission_classes([IsManager])

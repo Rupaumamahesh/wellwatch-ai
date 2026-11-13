@@ -48,7 +48,9 @@ export const api = {
   teamReport: () => request("/team/report"),
   teamMembers: () => request("/team/members"),
   addTeamMember: (member) => request("/team/members", { method: "POST", body: JSON.stringify(member) }),
+  addExistingTeamMember: (userId) => request("/team/members", { method: "POST", body: JSON.stringify({ user_id: userId }) }),
   removeTeamMember: (id) => request("/team/members", { method: "DELETE", body: JSON.stringify({ id }) }),
+  eligibleTeamMembers: () => request("/team/eligible-members"),
   notifyHr: () => request("/team/notify-hr", { method: "POST" }),
   adminStats: () => request("/admin/stats"),
   adminUsers: () => request("/admin/users"),
@@ -59,6 +61,8 @@ export const api = {
   adminTeams: () => request("/admin/teams"),
   adminCreateTeam: (data) => request("/admin/teams", { method: "POST", body: JSON.stringify(data) }),
   adminDeleteTeam: (id) => request(`/admin/teams/${id}`, { method: "DELETE" }),
+  adminAddTeamMember: (teamId, userId) => request(`/admin/teams/${teamId}/members`, { method: "POST", body: JSON.stringify({ user_id: userId }) }),
+  adminRemoveTeamMember: (teamId, userId) => request(`/admin/teams/${teamId}/members/${userId}`, { method: "DELETE" }),
 };
 
 export function clearSession() {

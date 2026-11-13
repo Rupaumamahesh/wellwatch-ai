@@ -7,7 +7,7 @@ urlpatterns = [
     path("me/history", views.history),
     path("me/recommendations", views.recommendations), path("me/share", views.share),
     path("team", views.team_profile), path("team/stats", views.team_stats), path("team/report", views.team_stats),
-    path("team/members", views.team_members), path("team/notify-hr", views.notify_hr),
+    path("team/members", views.team_members), path("team/eligible-members", views.team_eligible_members), path("team/notify-hr", views.notify_hr),
     path("password/forgot", views.forgot_password), path("password/reset", views.reset_password),
     path("admin/stats", views.admin_stats),
     path("admin/users", views.admin_users),
@@ -15,4 +15,6 @@ urlpatterns = [
     path("admin/users/<int:user_id>/reset-password", views.admin_reset_password),
     path("admin/teams", views.admin_teams),
     path("admin/teams/<int:team_id>", views.admin_team_detail),
+    path("admin/teams/<int:team_id>/members", views.admin_team_members),
+    path("admin/teams/<int:team_id>/members/<int:user_id>", views.admin_team_member_detail),
 ]

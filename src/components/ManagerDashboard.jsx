@@ -46,6 +46,10 @@ export default function ManagerDashboard() {
   const [memberForm, setMemberForm] = useState({ username: "", email: "", password: "" });
   const [savingMember, setSavingMember] = useState(false);
   const [team, setTeam] = useState(null);
+  const [eligibleUsers, setEligibleUsers] = useState([]);
+  const [existingUserId, setExistingUserId] = useState("");
+  const [addingExisting, setAddingExisting] = useState(false);
+  const [showAddExisting, setShowAddExisting] = useState(false);
   useEffect(() => {
     api.teamStats().then(setData).catch((error) => setMessage(error.message));
     api.teamMembers().then((result) => setMembers(result.members || result)).catch((error) => setMemberError(error.message));
@@ -63,6 +67,29 @@ export default function ManagerDashboard() {
     try { await api.addTeamMember(memberForm); setMemberForm({ username: "", email: "", password: "" }); setMembers(await api.teamMembers().then((result) => result.members || result)); }
     catch (error) { setMemberError(error.message); }
     finally { setSavingMember(false); }
+  }
+
+  async function handleShowAddExisting() {
+    setShowAddExisting((v) => !v);
+    if (!showAddExisting) {
+      try { setEligibleUsers(await api.eligibleTeamMembers()); }
+      catch (error) { setMemberError(error.message); }
+    }
+  }
+
+  async function addExistingMember(e) {
+    e.preventDefault();
+    if (!existingUserId) return;
+    setMemberError(""); setAddingExisting(true);
+    try {
+      await api.addExistingTeamMember(parseInt(existingUserId));
+      setMembers(await api.teamMembers().then((result) => result.members || result));
+      setEligibleUsers((u) => u.filter((x) => x.id !== parseInt(existingUserId)));
+      setExistingUserId("");
+      setShowAddExisting(false);
+    }
+    catch (error) { setMemberError(error.message); }
+    finally { setAddingExisting(false); }
   }
 
   async function removeMember(id) {
@@ -209,15 +236,67 @@ export default function ManagerDashboard() {
           </div>
         </div>
         <section className="mt-6 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <h2 className="font-medium mb-1">Team members</h2><p className="text-sm text-slate-500 mb-4">Manage team login accounts. Wellness data is shared only with each employee’s consent.</p>
+          <h2 className="font-medium mb-1">Team members</h2>
+          <p className="text-sm text-slate-500 mb-4">Manage team login accounts. Wellness data is shared only with each employee’s consent.</p>
           {memberError && <p role="alert" className="mb-3 text-sm text-red-600">{memberError}</p>}
-          <form onSubmit={addMember} className="grid gap-3 sm:grid-cols-4 mb-5">
+
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Create new account</p>
+          <form onSubmit={addMember} className="grid gap-3 sm:grid-cols-4 mb-4">
             <input required value={memberForm.username} onChange={(e) => setMemberForm({...memberForm, username:e.target.value})} placeholder="Username" aria-label="Username" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
             <input required type="email" value={memberForm.email} onChange={(e) => setMemberForm({...memberForm, email:e.target.value})} placeholder="Email" aria-label="Email" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
             <input required type="password" minLength="8" value={memberForm.password} onChange={(e) => setMemberForm({...memberForm, password:e.target.value})} placeholder="Temporary password" aria-label="Temporary password" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
             <button disabled={savingMember} className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60">{savingMember ? "Adding…" : "Add member"}</button>
           </form>
-          {members.length ? <ul className="divide-y divide-slate-100">{members.map((member) => <li key={member.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"><span><strong className="font-medium">{member.username}</strong><span className="ml-2 text-slate-500">{member.email}</span><span className="ml-2 text-xs text-slate-500">{member.share_with_manager ? "Sharing enabled" : "Private"}</span></span><button onClick={() => removeMember(member.id)} className="text-red-600 hover:underline">Remove</button></li>)}</ul> : <p className="text-sm text-slate-500">No team members found.</p>}
+
+          <button
+            type="button"
+            onClick={handleShowAddExisting}
+            className="text-sm text-violet-600 hover:underline mb-4"
+          >
+            {showAddExisting ? "Cancel" : "+ Add existing user to this team"}
+          </button>
+
+          {showAddExisting && (
+            <form onSubmit={addExistingMember} className="flex gap-2 mb-5">
+              <select
+                value={existingUserId}
+                onChange={(e) => setExistingUserId(e.target.value)}
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+              >
+                <option value="">Select existing user…</option>
+                {eligibleUsers.map((u) => (
+                  <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                disabled={!existingUserId || addingExisting}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60 shrink-0"
+              >
+                {addingExisting ? "Adding…" : "Add"}
+              </button>
+            </form>
+          )}
+          {showAddExisting && eligibleUsers.length === 0 && (
+            <p className="text-xs text-slate-400 mb-4">No other users available to add.</p>
+          )}
+
+          {members.length ? (
+            <ul className="divide-y divide-slate-100">
+              {members.map((member) => (
+                <li key={member.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
+                  <span>
+                    <strong className="font-medium">{member.username}</strong>
+                    <span className="ml-2 text-slate-500">{member.email}</span>
+                    <span className="ml-2 text-xs text-slate-500">{member.share_with_manager ? "Sharing enabled" : "Private"}</span>
+                  </span>
+                  <button onClick={() => removeMember(member.id)} className="text-red-600 hover:underline">Remove</button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-500">No team members found.</p>
+          )}
         </section>
       </main>
     </div>
