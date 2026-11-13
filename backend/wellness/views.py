@@ -18,7 +18,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from .models import CheckIn, RiskScore, Team, User
-from .permissions import IsManager
+from .permissions import IsAdmin, IsManager
 from .serializers import CheckInSerializer, UserSerializer
 
 @api_view(["GET", "PATCH"])
@@ -283,6 +283,150 @@ def team_members(request):
         return Response({"detail": "Team member not found."}, status=404)
     for team in teams.filter(members=member):
         team.members.remove(member)
+    return Response(status=204)
+
+@api_view(["GET"])
+@permission_classes([IsAdmin])
+def admin_stats(request):
+    total_users = User.objects.count()
+    by_role = {role: User.objects.filter(role=role).count() for role, _ in User.Role.choices}
+    since_30 = timezone.localdate() - timedelta(days=30)
+    since_7 = timezone.localdate() - timedelta(days=7)
+    total_checkins = CheckIn.objects.filter(date__gte=since_30).count()
+    active_users = User.objects.filter(checkins__date__gte=since_7).distinct().count()
+    risk_qs = RiskScore.objects.filter(checkin__date__gte=since_30)
+    risk_counts = {level: risk_qs.filter(level=level).count() for level, _ in RiskScore.Level.choices}
+    total_teams = Team.objects.count()
+    return Response({
+        "total_users": total_users,
+        "by_role": by_role,
+        "total_checkins_30d": total_checkins,
+        "active_users_7d": active_users,
+        "risk_counts_30d": risk_counts,
+        "total_teams": total_teams,
+    })
+
+def _user_detail(user):
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "date_joined": user.date_joined.date().isoformat(),
+    }
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAdmin])
+def admin_users(request):
+    if request.method == "GET":
+        users = User.objects.order_by("date_joined")
+        return Response([_user_detail(u) for u in users])
+    data = request.data if hasattr(request.data, "get") else {}
+    required = ("username", "email", "password", "role")
+    if any(not isinstance(data.get(k), str) or not data[k] for k in required):
+        return Response({"detail": "username, email, password, and role are required."}, status=400)
+    if data["role"] not in [r for r, _ in User.Role.choices]:
+        return Response({"role": ["Invalid role."]}, status=400)
+    from django.core.validators import validate_email as _validate_email
+    try:
+        _validate_email(data["email"])
+        validate_password(data["password"])
+    except ValidationError as exc:
+        return Response({"detail": exc.messages}, status=400)
+    if User.objects.filter(username__iexact=data["username"]).exists():
+        return Response({"username": ["A user with this username already exists."]}, status=400)
+    if User.objects.filter(email__iexact=data["email"]).exists():
+        return Response({"email": ["A user with this email already exists."]}, status=400)
+    user = User.objects.create_user(
+        username=data["username"], email=data["email"], password=data["password"],
+        role=data["role"], first_name=data.get("first_name", ""), last_name=data.get("last_name", ""),
+    )
+    return Response(_user_detail(user), status=201)
+
+@api_view(["PATCH", "DELETE"])
+@permission_classes([IsAdmin])
+def admin_user_detail(request, user_id):
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return Response({"detail": "User not found."}, status=404)
+    if request.method == "DELETE":
+        if user == request.user:
+            return Response({"detail": "You cannot delete your own account."}, status=400)
+        user.delete()
+        return Response(status=204)
+    data = request.data if hasattr(request.data, "get") else {}
+    if "role" in data:
+        if data["role"] not in [r for r, _ in User.Role.choices]:
+            return Response({"role": ["Invalid role."]}, status=400)
+        user.role = data["role"]
+    if "is_active" in data:
+        if not isinstance(data["is_active"], bool):
+            return Response({"is_active": ["Must be a boolean."]}, status=400)
+        if user == request.user and not data["is_active"]:
+            return Response({"detail": "You cannot deactivate your own account."}, status=400)
+        user.is_active = data["is_active"]
+    if "first_name" in data:
+        user.first_name = data["first_name"]
+    if "last_name" in data:
+        user.last_name = data["last_name"]
+    user.save()
+    return Response(_user_detail(user))
+
+@api_view(["POST"])
+@permission_classes([IsAdmin])
+def admin_reset_password(request, user_id):
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return Response({"detail": "User not found."}, status=404)
+    new_password = request.data.get("new_password") if hasattr(request.data, "get") else None
+    if not isinstance(new_password, str) or not new_password:
+        return Response({"detail": "new_password is required."}, status=400)
+    try:
+        validate_password(new_password, user)
+    except ValidationError as exc:
+        return Response({"new_password": exc.messages}, status=400)
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+    Token.objects.filter(user=user).delete()
+    return Response({"detail": "Password reset successfully."})
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAdmin])
+def admin_teams(request):
+    if request.method == "GET":
+        teams = Team.objects.select_related("manager").prefetch_related("members")
+        return Response([{
+            "id": t.id, "name": t.name,
+            "manager": {"id": t.manager.id, "username": t.manager.username},
+            "member_count": t.members.count(),
+        } for t in teams])
+    data = request.data if hasattr(request.data, "get") else {}
+    name = data.get("name")
+    manager_id = data.get("manager_id")
+    if not isinstance(name, str) or not name.strip():
+        return Response({"name": ["A team name is required."]}, status=400)
+    if not isinstance(manager_id, int):
+        return Response({"manager_id": ["A valid manager id is required."]}, status=400)
+    manager = User.objects.filter(id=manager_id, role=User.Role.MANAGER).first()
+    if not manager:
+        return Response({"manager_id": ["No manager found with this id."]}, status=400)
+    if Team.objects.filter(name__iexact=name.strip()).exists():
+        return Response({"name": ["A team with this name already exists."]}, status=400)
+    team = Team.objects.create(name=name.strip()[:120], manager=manager)
+    return Response({"id": team.id, "name": team.name,
+                     "manager": {"id": manager.id, "username": manager.username},
+                     "member_count": 0}, status=201)
+
+@api_view(["DELETE"])
+@permission_classes([IsAdmin])
+def admin_team_detail(request, team_id):
+    team = Team.objects.filter(id=team_id).first()
+    if not team:
+        return Response({"detail": "Team not found."}, status=404)
+    team.delete()
     return Response(status=204)
 
 @api_view(["POST"])

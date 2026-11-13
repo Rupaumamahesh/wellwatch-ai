@@ -10,6 +10,9 @@ import ReportsPage from "./components/ReportsPage";
 import ManagerInsights from "./components/ManagerInsights";
 import PasswordReset from "./components/PasswordReset";
 import EmployeeInsights from "./components/EmployeeInsights";
+import AdminDashboard from "./components/AdminDashboard";
+import AdminUsers from "./components/AdminUsers";
+import AdminTeams from "./components/AdminTeams";
 
 function App() {
   return (
@@ -31,6 +34,12 @@ function App() {
         <Route path="/manager-insights" element={<ManagerInsights />} />
         <Route path="/manager-reports" element={<ReportsPage role="manager" />} />
         <Route path="/manager-settings" element={<SettingsPage role="manager" />} />
+      </Route>
+      <Route element={<ProtectedRoute role="admin" />}>
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route path="/admin-users" element={<AdminUsers />} />
+        <Route path="/admin-teams" element={<AdminTeams />} />
+        <Route path="/admin-settings" element={<SettingsPage role="admin" />} />
       </Route>
     </Routes>
   );

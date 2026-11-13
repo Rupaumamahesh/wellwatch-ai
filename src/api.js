@@ -50,6 +50,15 @@ export const api = {
   addTeamMember: (member) => request("/team/members", { method: "POST", body: JSON.stringify(member) }),
   removeTeamMember: (id) => request("/team/members", { method: "DELETE", body: JSON.stringify({ id }) }),
   notifyHr: () => request("/team/notify-hr", { method: "POST" }),
+  adminStats: () => request("/admin/stats"),
+  adminUsers: () => request("/admin/users"),
+  adminCreateUser: (data) => request("/admin/users", { method: "POST", body: JSON.stringify(data) }),
+  adminUpdateUser: (id, data) => request(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  adminDeleteUser: (id) => request(`/admin/users/${id}`, { method: "DELETE" }),
+  adminResetPassword: (id, new_password) => request(`/admin/users/${id}/reset-password`, { method: "POST", body: JSON.stringify({ new_password }) }),
+  adminTeams: () => request("/admin/teams"),
+  adminCreateTeam: (data) => request("/admin/teams", { method: "POST", body: JSON.stringify(data) }),
+  adminDeleteTeam: (id) => request(`/admin/teams/${id}`, { method: "DELETE" }),
 };
 
 export function clearSession() {

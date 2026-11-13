@@ -26,7 +26,8 @@ export default function Login() {
       localStorage.setItem("wellwatch_token", data.access || data.token);
       localStorage.setItem("wellwatch_loggedIn", "true");
       localStorage.setItem("wellwatch_role", data.role || role);
-      navigate((data.role || role) === "manager" ? "/manager-dashboard" : "/dashboard");
+      const resolvedRole = data.role || role;
+      navigate(resolvedRole === "manager" ? "/manager-dashboard" : resolvedRole === "admin" ? "/admin-dashboard" : "/dashboard");
     } catch (requestError) {
       setError(requestError.message);
     }
@@ -67,6 +68,7 @@ export default function Login() {
               >
                 <option value="employee">Employee</option>
                 <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
               </select>
               <ChevronDown
                 className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"

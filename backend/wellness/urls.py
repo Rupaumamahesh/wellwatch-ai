@@ -9,4 +9,10 @@ urlpatterns = [
     path("team", views.team_profile), path("team/stats", views.team_stats), path("team/report", views.team_stats),
     path("team/members", views.team_members), path("team/notify-hr", views.notify_hr),
     path("password/forgot", views.forgot_password), path("password/reset", views.reset_password),
+    path("admin/stats", views.admin_stats),
+    path("admin/users", views.admin_users),
+    path("admin/users/<int:user_id>", views.admin_user_detail),
+    path("admin/users/<int:user_id>/reset-password", views.admin_reset_password),
+    path("admin/teams", views.admin_teams),
+    path("admin/teams/<int:team_id>", views.admin_team_detail),
 ]

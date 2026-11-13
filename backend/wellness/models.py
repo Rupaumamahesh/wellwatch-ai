@@ -5,6 +5,7 @@ class User(AbstractUser):
     class Role(models.TextChoices):
         EMPLOYEE = "employee", "Employee"
         MANAGER = "manager", "Manager"
+        ADMIN = "admin", "Admin"
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.EMPLOYEE)
     share_with_manager = models.BooleanField(default=False)
 

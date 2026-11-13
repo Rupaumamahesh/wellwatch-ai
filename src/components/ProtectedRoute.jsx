@@ -5,7 +5,8 @@ export default function ProtectedRoute({ role }) {
   const currentRole = localStorage.getItem("wellwatch_role");
   if (!loggedIn) return <Navigate to="/" replace />;
   if (role && currentRole !== role) {
-    return <Navigate to={currentRole === "manager" ? "/manager-dashboard" : "/dashboard"} replace />;
+    const home = currentRole === "manager" ? "/manager-dashboard" : currentRole === "admin" ? "/admin-dashboard" : "/dashboard";
+    return <Navigate to={home} replace />;
   }
   return <Outlet />;
 }

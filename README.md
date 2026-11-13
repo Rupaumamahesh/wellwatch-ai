@@ -6,13 +6,13 @@ Employee wellness check-ins, personal trends, and consent-based team insights. B
 
 ## Features
 
-| Employees | Managers |
-| --- | --- |
-| Daily mood, stress, energy, and sleep check-ins | Team naming and employee account management |
-| Personal trends, history, and CSV reports | Aggregate team insights and CSV reports |
-| Recommendations and wellness resources | HR notification UI marked as a future feature |
-| Consent controls for team summaries | Small-cohort privacy protection |
-| Profile settings and authenticated password changes | Profile settings and authenticated password changes |
+| Employees | Managers | Admin |
+| --- | --- | --- |
+| Daily mood, stress, energy, and sleep check-ins | Team naming and employee account management | Platform-wide stats overview |
+| Personal trends, history, and CSV reports | Aggregate team insights and CSV reports | User management (create, edit role, activate/deactivate, delete) |
+| Recommendations and wellness resources | HR notification UI marked as a future feature | Password reset for any account |
+| Consent controls for team summaries | Small-cohort privacy protection | Team management (create teams, assign managers, delete) |
+| Profile settings and authenticated password changes | Profile settings and authenticated password changes | Risk distribution across all users |
 
 Individual check-ins and comments are not exposed in team reports. Groups and daily trend points with fewer than three contributors are suppressed.
 
@@ -24,6 +24,7 @@ Individual check-ins and comments are not exposed in team reports. Groups and da
 flowchart LR
     E[Employee] --> UI[React interface]
     M[Manager] --> UI
+    A[Admin] --> UI
     UI --> API[Django REST API]
     API --> DB[(PostgreSQL)]
     API --> S[VADER sentiment]
@@ -36,6 +37,106 @@ flowchart LR
 ```
 
 Vite proxies `/api` to Django during local development. SMTP, Docker, and public hosting are deferred; none is required to run or review the project.
+
+## Admin panel
+
+WellWatch AI includes an admin panel accessible by accounts with the `admin` role.
+
+### Create the first admin account
+
+```bash
+# Activate your virtual environment first
+source .venv/bin/activate        # macOS / Linux
+# .venv\Scripts\activate         # Windows
+
+python backend/manage.py shell -c "
+from wellness.models import User
+User.objects.create_user(
+    username='admin',
+    email='admin@wellwatch.local',
+    password='Admin@123',
+    role='admin',
+)
+"
+```
+
+### Admin modules
+
+| Module | Route | Capability |
+| --- | --- | --- |
+| Overview | `/admin-dashboard` | Total users, active users (7 days), check-ins (30 days), risk distribution, teams count |
+| User Management | `/admin-users` | Create users, change roles, activate/deactivate, reset passwords, delete accounts |
+| Team Management | `/admin-teams` | Create teams with assigned manager, view member counts, delete teams |
+
+Log in at the app login page by selecting **Admin** from the role dropdown.
+
+---
+
+## Run locally on macOS
+
+Requires Node 24+, Python 3.11, `uv`, and PostgreSQL 17+ (Homebrew). Install with:
+
+```bash
+brew install node@24 python@3.11 postgresql@18
+curl -LsSf https://astral.sh/uv/install.sh | sh
+brew services start postgresql@18
+```
+
+Create the database:
+
+```bash
+psql postgres -c "CREATE USER wellwatch WITH PASSWORD 'wellwatch123';"
+psql postgres -c "CREATE DATABASE wellwatch OWNER wellwatch;"
+```
+
+Copy `.env.example` to `.env` and set `POSTGRES_PORT=5432` (Homebrew default). Then:
+
+```bash
+uv venv --python 3.11 && source .venv/bin/activate
+uv pip install -r backend/requirements.txt
+python backend/manage.py migrate
+python backend/manage.py seed_demo
+python backend/manage.py train_risk_model --seed 42
+npm install
+```
+
+Run in two separate terminals:
+
+```bash
+# Terminal 1 — backend
+source .venv/bin/activate && python backend/manage.py runserver
+
+# Terminal 2 — frontend
+npm run dev
+```
+
+Open [localhost:5173](http://localhost:5173). Demo credentials are in `.local/demo-accounts.json`.
+
+### Demo account passwords (macOS quick-start)
+
+After running `seed_demo`, reset all demo passwords to something memorable:
+
+```bash
+source .venv/bin/activate
+python backend/manage.py shell -c "
+from wellness.models import User
+managers = ['demo.ishaan@example.test', 'demo.neha@example.test']
+employees = [u.email for u in User.objects.filter(role='employee')]
+for email in managers:
+    u = User.objects.get(email=email); u.set_password('Manager@123'); u.save()
+for email in employees:
+    u = User.objects.get(email=email); u.set_password('Employee@123'); u.save()
+print('Done')
+"
+```
+
+| Role | Email pattern | Password |
+| --- | --- | --- |
+| Manager | demo.ishaan@example.test, demo.neha@example.test | `Manager@123` |
+| Employee | demo.aarav@example.test … demo.sana@example.test | `Employee@123` |
+| Admin | admin@wellwatch.local | `Admin@123` |
+
+---
 
 ## Run locally on Windows
 
@@ -76,7 +177,7 @@ HR notification and email password recovery controls are disabled and marked as 
 ## Project map
 
 ```text
-src/components/           Login, check-ins, dashboards, reports, insights, settings
+src/components/           Login, check-ins, dashboards, reports, insights, settings, admin panel
 src/api.js                API requests and authentication errors
 src/reports.js            CSV export helpers
 backend/config/           Django settings and root routes
